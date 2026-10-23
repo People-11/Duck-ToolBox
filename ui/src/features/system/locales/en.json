@@ -54,6 +54,9 @@
     "title": "Command history",
     "empty": "No commands have run yet.",
     "all": "Show all",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "retryMore": "Retry loading",
     "failed": "Failed"
   },
   "maintenance": {

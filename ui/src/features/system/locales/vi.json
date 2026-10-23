@@ -54,6 +54,9 @@
     "title": "Lịch sử lệnh",
     "empty": "Chưa có lệnh nào được chạy.",
     "all": "Xem tất cả",
+    "loadMore": "Tải thêm",
+    "loadingMore": "Đang tải…",
+    "retryMore": "Thử lại",
     "failed": "Thất bại"
   },
   "maintenance": {

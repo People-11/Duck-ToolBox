@@ -54,6 +54,9 @@
     "title": "Historique des commandes",
     "empty": "Aucune commande n’a encore été exécutée.",
     "all": "Tout afficher",
+    "loadMore": "Charger plus",
+    "loadingMore": "Chargement…",
+    "retryMore": "Réessayer",
     "failed": "Échec"
   },
   "maintenance": {

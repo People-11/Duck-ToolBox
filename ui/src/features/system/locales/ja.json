@@ -54,6 +54,9 @@
     "title": "コマンド履歴",
     "empty": "実行されたコマンドはまだありません。",
     "all": "すべて表示",
+    "loadMore": "さらに読み込む",
+    "loadingMore": "読み込み中…",
+    "retryMore": "再試行",
     "failed": "失敗"
   },
   "maintenance": {

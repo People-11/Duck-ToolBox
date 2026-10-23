@@ -97,7 +97,10 @@ fn emit(ctx: &Context, result: CommandResult) {
         Err(failure) => (envelope::failure(&failure), true),
     };
 
-    duck_core::log::append(&ctx.paths, &value);
+    // History reads must not mutate the data being paginated.
+    if value["command"].as_str() != Some("system.log") {
+        duck_core::log::append(&ctx.paths, &value);
+    }
     envelope::emit(&value);
 
     if failed {

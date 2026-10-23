@@ -15,6 +15,24 @@ use serde_json::Value;
 use crate::{paths::AppPaths, unix_now};
 
 const MAX_LOG_BYTES: u64 = 512 * 1024;
+/// Bound log responses for native WebUI stdout bridges.
+pub const MAX_LOG_PAGE_SIZE: usize = 20;
+const MAX_LOG_MESSAGE_CHARS: usize = 512;
+
+#[derive(Debug, Serialize)]
+pub struct LogPage {
+    pub entries: Vec<LogEntry>,
+    pub next_offset: Option<usize>,
+}
+
+fn bound_message(message: &mut Option<String>) {
+    if let Some(message) = message
+        && let Some((byte, _)) = message.char_indices().nth(MAX_LOG_MESSAGE_CHARS)
+    {
+        message.truncate(byte);
+        message.push('…');
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LogEntry {
@@ -48,7 +66,9 @@ pub fn append(paths: &AppPaths, envelope: &Value) {
     }
     rotate_if_needed(paths);
 
-    let Ok(line) = serde_json::to_string(&LogEntry::from_envelope(envelope)) else {
+    let mut entry = LogEntry::from_envelope(envelope);
+    bound_message(&mut entry.message);
+    let Ok(line) = serde_json::to_string(&entry) else {
         return;
     };
     if let Ok(mut file) = OpenOptions::new()
@@ -63,6 +83,24 @@ pub fn append(paths: &AppPaths, envelope: &Value) {
 /// The newest `limit` entries, newest first. Older releases logged whole envelopes; those
 /// lines are reduced to entries, and anything unparsable is skipped.
 pub fn tail(paths: &AppPaths, limit: usize) -> Result<Vec<LogEntry>> {
+    let mut entries = read_entries(paths)?;
+    entries.truncate(limit);
+    Ok(entries)
+}
+
+/// A bounded slice of history. The next offset is absent at the end of the log.
+pub fn page(paths: &AppPaths, limit: usize, offset: usize) -> Result<LogPage> {
+    let entries = read_entries(paths)?;
+    let end = offset
+        .saturating_add(limit.clamp(1, MAX_LOG_PAGE_SIZE))
+        .min(entries.len());
+    Ok(LogPage {
+        entries: entries.get(offset..end).unwrap_or(&[]).to_vec(),
+        next_offset: (offset < entries.len() && end < entries.len()).then_some(end),
+    })
+}
+
+fn read_entries(paths: &AppPaths) -> Result<Vec<LogEntry>> {
     let file = match std::fs::File::open(&paths.log_path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -73,15 +111,17 @@ pub fn tail(paths: &AppPaths, limit: usize) -> Result<Vec<LogEntry>> {
         .map_while(Result::ok)
         .filter_map(|line| serde_json::from_str::<Value>(&line).ok())
         .filter_map(|value| {
-            if value.get("error").is_some() || value.get("data").is_some() {
-                Some(LogEntry::from_envelope(&value))
+            let mut entry = if value.get("error").is_some() || value.get("data").is_some() {
+                LogEntry::from_envelope(&value)
             } else {
-                serde_json::from_value(value).ok()
-            }
+                serde_json::from_value(value).ok()?
+            };
+            // Legacy logs may contain unbounded error strings.
+            bound_message(&mut entry.message);
+            Some(entry)
         })
         .collect();
     entries.reverse();
-    entries.truncate(limit);
     Ok(entries)
 }
 
@@ -102,8 +142,43 @@ fn rotate_if_needed(paths: &AppPaths) {
 mod tests {
     use serde_json::json;
 
-    use super::{append, tail};
+    use super::{MAX_LOG_MESSAGE_CHARS, MAX_LOG_PAGE_SIZE, append, page, tail};
     use crate::AppPaths;
+
+    #[test]
+    fn bounded_pages_and_utf8_errors() {
+        let dir = std::env::temp_dir().join(format!("duck-log-pages-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let paths = AppPaths::for_root(&dir, &dir);
+        for ts in 0..45 {
+            append(
+                &paths,
+                &json!({
+                    "ok": false, "command": "demo",
+                    "error": { "code": "failed", "message": "界".repeat(900) },
+                    "ts": ts,
+                }),
+            );
+        }
+        let first = page(&paths, 200, 0).unwrap();
+        assert_eq!(first.entries.len(), MAX_LOG_PAGE_SIZE);
+        assert_eq!(first.entries[0].ts, 44);
+        assert_eq!(first.next_offset, Some(20));
+        assert_eq!(
+            first.entries[0].message.as_ref().unwrap().chars().count(),
+            MAX_LOG_MESSAGE_CHARS + 1
+        );
+        assert!(first.entries[0].message.as_ref().unwrap().ends_with('…'));
+        let second = page(&paths, 20, 20).unwrap();
+        assert_eq!(second.entries[0].ts, 24);
+        assert_eq!(second.next_offset, Some(40));
+        let last = page(&paths, 20, 40).unwrap();
+        assert_eq!(last.entries.len(), 5);
+        assert_eq!(last.next_offset, None);
+        assert!(page(&paths, 20, usize::MAX).unwrap().entries.is_empty());
+        assert_eq!(page(&paths, 0, 0).unwrap().entries.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn records_outcomes_without_payloads() {

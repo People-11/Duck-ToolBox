@@ -54,6 +54,9 @@
     "title": "명령 기록",
     "empty": "아직 실행한 명령이 없습니다.",
     "all": "모두 보기",
+    "loadMore": "더 불러오기",
+    "loadingMore": "불러오는 중…",
+    "retryMore": "다시 시도",
     "failed": "실패"
   },
   "maintenance": {

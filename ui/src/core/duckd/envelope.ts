@@ -43,7 +43,12 @@ export function isDuckError(error: unknown): error is DuckError {
  * Returns the last line of stdout that is a valid envelope. The shell wrapper and the root
  * manager may print warnings before it.
  */
-export function parseEnvelope(stdout: string, stderr: string, command: string): Envelope {
+export function parseEnvelope(
+  stdout: string,
+  stderr: string,
+  command: string,
+  exitCode?: number,
+): Envelope {
   const lines = stdout.split(/\r?\n/).reverse()
   for (const line of lines) {
     const trimmed = line.trim()
@@ -57,8 +62,12 @@ export function parseEnvelope(stdout: string, stderr: string, command: string): 
   }
   throw new DuckError(
     "no_envelope",
-    stderr.trim() || stdout.trim() || "the backend printed no response",
+    stderr.trim() ||
+      stdout.trim() ||
+      (exitCode === undefined
+        ? "the backend printed no response"
+        : `no protocol response received (process exit code: ${exitCode})`),
     command,
-    { stdout, stderr },
+    { stdout, stderr, exitCode },
   )
 }

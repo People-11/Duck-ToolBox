@@ -54,6 +54,9 @@
     "title": "Riwayat perintah",
     "empty": "Belum ada perintah yang dijalankan.",
     "all": "Tampilkan semua",
+    "loadMore": "Muat lainnya",
+    "loadingMore": "Memuat…",
+    "retryMore": "Coba lagi",
     "failed": "Gagal"
   },
   "maintenance": {

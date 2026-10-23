@@ -72,8 +72,10 @@ pub struct FilesArgs {
 
 #[derive(Debug, Args, Clone)]
 pub struct LogArgs {
-    #[arg(long, default_value_t = 50)]
+    #[arg(long, default_value_t = 20)]
     pub limit: usize,
+    #[arg(long, default_value_t = 0)]
+    pub offset: usize,
 }
 
 #[derive(Debug, Args, Clone)]
@@ -98,9 +100,9 @@ pub async fn run(command: Command, ctx: &Context) -> CommandResult {
         Command::Files(args) => {
             files::list(ctx, &args.path, &args.extension).into_command("system.files", code_of)
         }
-        Command::Log(args) => log::tail(&ctx.paths, args.limit)
-            .map(|entries| json!({ "entries": entries }))
-            .into_command("system.log", code_of),
+        Command::Log(args) => {
+            log::page(&ctx.paths, args.limit, args.offset).into_command("system.log", code_of)
+        }
         Command::OpenUrl(args) => open_url(&args.url)
             .map(|()| json!({ "url": args.url }))
             .into_command("system.open-url", code_of),

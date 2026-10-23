@@ -54,6 +54,9 @@
     "title": "Befehlsverlauf",
     "empty": "Es wurden noch keine Befehle ausgeführt.",
     "all": "Alle anzeigen",
+    "loadMore": "Mehr laden",
+    "loadingMore": "Wird geladen…",
+    "retryMore": "Erneut versuchen",
     "failed": "Fehlgeschlagen"
   },
   "maintenance": {

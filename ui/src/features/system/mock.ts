@@ -67,8 +67,8 @@ const mock: MockModule = {
       profile_secrets_path: "/data/adb/duck-toolbox/var/profile.secrets.toml",
       log_path: "/data/adb/duck-toolbox/var/logs/duckd.log",
     }),
-    "system.log": () => ({
-      entries: [
+    "system.log": (_args, flags) => {
+      const entries = [
         { ts: now() - 30, command: "tricky-store.save", ok: true },
         { ts: now() - 120, command: "tricky-store.keybox.set-aosp", ok: true },
         {
@@ -78,8 +78,14 @@ const mock: MockModule = {
           code: "missing_device_field",
           message: "device field `brand` must not be empty",
         },
-      ],
-    }),
+      ]
+      const limit = Math.max(1, Math.min(20, Number(flags.limit ?? 20)))
+      const offset = Math.max(0, Number(flags.offset ?? 0))
+      return {
+        entries: entries.slice(offset, offset + limit),
+        next_offset: offset + limit < entries.length ? offset + limit : null,
+      }
+    },
     "system.files": (_args, flags) => {
       const path = String(flags.path ?? "/storage/emulated/0/Download")
       const extension = String(flags.extension ?? "")

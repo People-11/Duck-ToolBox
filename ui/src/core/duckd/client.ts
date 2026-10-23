@@ -44,7 +44,7 @@ export async function duckd<T = unknown>(
     options.input === undefined ? command : heredoc(command, JSON.stringify(options.input))
 
   const result = await host.exec(shell)
-  const envelope = parseEnvelope(result.stdout, result.stderr, label)
+  const envelope = parseEnvelope(result.stdout, result.stderr, label, result.errno)
 
   if (envelope.api !== undefined && envelope.api !== ENVELOPE_API) {
     throw new DuckError(

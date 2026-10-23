@@ -54,6 +54,9 @@
     "title": "Cronologia comandi",
     "empty": "Non è ancora stato eseguito alcun comando.",
     "all": "Mostra tutti",
+    "loadMore": "Carica altro",
+    "loadingMore": "Caricamento…",
+    "retryMore": "Riprova",
     "failed": "Non riuscito"
   },
   "maintenance": {

@@ -54,6 +54,9 @@
     "title": "命令记录",
     "empty": "还没有运行过命令。",
     "all": "查看全部",
+    "loadMore": "加载更多",
+    "loadingMore": "正在加载…",
+    "retryMore": "重试加载",
     "failed": "失败"
   },
   "maintenance": {

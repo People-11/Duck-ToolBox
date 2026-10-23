@@ -54,6 +54,9 @@
     "title": "指令記錄",
     "empty": "尚未執行任何指令。",
     "all": "查看全部",
+    "loadMore": "載入更多",
+    "loadingMore": "載入中…",
+    "retryMore": "重試載入",
     "failed": "失敗"
   },
   "maintenance": {

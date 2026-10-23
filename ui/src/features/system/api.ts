@@ -69,6 +69,7 @@ const logSchema = z.object({
       message: z.string().optional(),
     }),
   ),
+  next_offset: z.number().int().nonnegative().nullable(),
 })
 export type LogEntry = z.infer<typeof logSchema>["entries"][number]
 
@@ -79,7 +80,10 @@ export const systemApi = {
   installUpdate: (channel: UpdateChannel) =>
     duckd(["system", "update", "install", "--channel", channel], { schema: installSchema }),
   artifacts: () => duckd(["system", "artifacts"], { schema: artifactsSchema }),
-  log: (limit: number) => duckd(["system", "log", "--limit", String(limit)], { schema: logSchema }),
+  log: (limit: number, offset = 0) =>
+    duckd(["system", "log", "--limit", String(limit), "--offset", String(offset)], {
+      schema: logSchema,
+    }),
   reboot: () => duckd(["system", "reboot"]),
   uninstall: () => duckd(["system", "uninstall"]),
 }

@@ -54,6 +54,9 @@
     "title": "Historial de comandos",
     "empty": "Aún no se ha ejecutado ningún comando.",
     "all": "Ver todo",
+    "loadMore": "Cargar más",
+    "loadingMore": "Cargando…",
+    "retryMore": "Reintentar",
     "failed": "Error"
   },
   "maintenance": {
