@@ -35,12 +35,7 @@ if [ ! -d "/data/adb/modules/tricky_store" ] &&
   [ ! -d "/data/adb/modules/oh_my_keymint" ] &&
   [ ! -d "/data/adb/modules/teesim" ]; then
   ui_print "! No keystore module found (Tricky Store, OhMyKeymint or TEESimulator)."
-  ui_print "  The Tricky Store manager stays idle until one is installed."
-fi
-
-# KernelSU and APatch show a WebUI button; the action button only helps Magisk users.
-if [ "$KSU" = "true" ] || [ "$APATCH" = "true" ]; then
-  rm -f "$MODPATH/action.sh"
+  ui_print "  Target management and keybox renewal stay idle until one is installed."
 fi
 
 # shellcheck source=util_functions.sh
@@ -49,10 +44,12 @@ fi
 ui_print "- Preparing runtime directory at $DATA_ROOT"
 umask 077
 repair_runtime
-normalize_boot_hash
+remove_entry_links
 
 ui_print " "
 ui_print "! Duck ToolBox is not part of Tricky Store, TEESimulator or OhMyKeymint."
 ui_print "  Do not report its issues to those projects."
+ui_print "- Keyboxes are issued with this device's KeyMint TA and renewed a day"
+ui_print "  before they expire. Use the action button to issue one now."
 ui_print "- Installation complete."
 ui_print " "

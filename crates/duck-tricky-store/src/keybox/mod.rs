@@ -49,6 +49,14 @@ pub fn status(sysroot: &Sysroot, device_path: &str) -> KeyboxStatus {
     }
 }
 
+/// The earliest certificate expiry of the active backend's keybox; `None` when no keybox is
+/// installed or none of its certificates can be read.
+pub fn installed_expiry(ctx: &Context) -> Result<Option<u64>> {
+    let (_, adapter) = active_adapter(&ctx.sysroot)?;
+    let path = ctx.sysroot.path(adapter.keybox_path(&ctx.sysroot));
+    Ok(duck_core::fs::read_optional(&path)?.and_then(|xml| validate::earliest_expiry(&xml)))
+}
+
 pub fn install(ctx: &Context, content: &str, source: &str) -> Result<KeyboxInstallData> {
     let (detection, adapter) = active_adapter(&ctx.sysroot)?;
     let cleaned = validate::clean(content)?;

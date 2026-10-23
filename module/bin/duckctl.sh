@@ -2,7 +2,7 @@
 set -eu
 umask 077
 
-# WebUI hosts run commands through the system shell; boot scripts already run in BusyBox
+# A manual call may come from the system shell; boot scripts already run in BusyBox
 # ash standalone mode (KernelSU module guide). Use the manager's BusyBox either way.
 if [ -z "${DUCK_TOOLBOX_BUSYBOX_REEXEC:-}" ]; then
   for busybox in /data/adb/ksu/bin/busybox /data/adb/ap/bin/busybox /data/adb/magisk/busybox; do
@@ -26,7 +26,7 @@ case "$MODULE_ROOT" in
 esac
 DATA_ROOT="${DUCK_TOOLBOX_DATA_ROOT:-$DEFAULT_DATA_ROOT}"
 SEARCHED_CANDIDATES=""
-# Callers that parse output (the WebUI, boot scripts) never attach a terminal.
+# Callers that parse or discard output (boot scripts, action.sh) never attach a terminal.
 WANTS_JSON=1
 [ -t 1 ] && WANTS_JSON=0
 

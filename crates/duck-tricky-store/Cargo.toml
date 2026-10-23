@@ -25,6 +25,7 @@ thiserror.workspace = true
 time.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
+x509-cert.workspace = true
 zip.workspace = true
 
 [dev-dependencies]

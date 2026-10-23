@@ -2,6 +2,7 @@
 //! invocation prints exactly one JSON envelope on stdout.
 
 mod builtin;
+mod renew;
 
 use clap::{Arg, ArgAction, error::ErrorKind};
 use duck_core::{
@@ -10,20 +11,7 @@ use duck_core::{
     envelope,
 };
 
-static FEATURES: &[&dyn Feature] = &[
-    #[cfg(feature = "rkp")]
-    &duck_rkp::FEATURE,
-    #[cfg(feature = "rkp-device")]
-    &duck_rkp_device::FEATURE,
-    #[cfg(feature = "tee-attestation")]
-    &duck_tee_attestation::FEATURE,
-    #[cfg(feature = "device-ids")]
-    &duck_device_ids::FEATURE,
-    #[cfg(feature = "tricky-store")]
-    &duck_tricky_store::FEATURE,
-    #[cfg(feature = "system")]
-    &duck_system::FEATURE,
-];
+static FEATURES: &[&dyn Feature] = &[&duck_rkp_device::FEATURE, &duck_tricky_store::FEATURE];
 
 fn cli() -> clap::Command {
     clap::Command::new("duckd")
@@ -38,7 +26,8 @@ fn cli() -> clap::Command {
         )
         .subcommand_required(true)
         .arg_required_else_help(true)
-        .subcommands(builtin::subcommands())
+        .subcommand(builtin::subcommand())
+        .subcommand(renew::subcommand())
         .subcommands(FEATURES.iter().map(|feature| feature.command()))
 }
 
@@ -81,7 +70,7 @@ async fn main() {
 
     let result = match matches.subcommand() {
         Some((builtin::MANIFEST, _)) => builtin::manifest(FEATURES),
-        Some((builtin::DESCRIBE, _)) => builtin::describe(FEATURES, &ctx),
+        Some((renew::COMMAND, sub)) => renew::run(FEATURES, &ctx, sub.get_flag("force")).await,
         Some((id, sub)) => match FEATURES.iter().find(|feature| feature.info().id == id) {
             Some(feature) => feature.run(sub, &ctx).await,
             None => unreachable!("clap only accepts registered subcommands"),
@@ -107,7 +96,7 @@ fn emit(ctx: &Context, result: CommandResult) {
 
 #[cfg(test)]
 mod tests {
-    use super::{FEATURES, builtin, cli};
+    use super::{FEATURES, builtin, cli, renew};
 
     #[test]
     fn cli_is_consistent() {
@@ -117,7 +106,7 @@ mod tests {
     #[test]
     fn feature_ids_are_unique_and_do_not_shadow_builtins() {
         let mut ids: Vec<_> = FEATURES.iter().map(|feature| feature.info().id).collect();
-        ids.extend([builtin::MANIFEST, builtin::DESCRIBE]);
+        ids.extend([builtin::MANIFEST, renew::COMMAND]);
         ids.sort_unstable();
         let before = ids.len();
         ids.dedup();

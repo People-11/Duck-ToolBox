@@ -21,7 +21,6 @@ env:
   ANDROID_API_LEVEL: 26
   TARGET: aarch64-linux-android
   NDK_VERSION: r30
-  NODE_VERSION: 24
   CARGO_TERM_COLOR: always
   RELEASE_CHANNEL: ${{ inputs.stable && 'stable' || 'nightly' }}
 
@@ -55,13 +54,6 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
         run: cargo test --workspace --locked
-      - name: Every feature builds on its own
-        run: |
-          for feature in rkp rkp-device tee-attestation device-ids tricky-store system; do
-            echo "::group::duckd with only ${feature}"
-            cargo check --locked --package duckd --no-default-features --features "${feature}"
-            echo "::endgroup::"
-          done
 
   android-backend:
     name: Android backend build
@@ -104,95 +96,6 @@ jobs:
           path: target/${{ env.TARGET }}/release/duckd
           if-no-files-found: error
 
-  webui:
-    name: WebUI checks and build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ui
-    steps:
-      - uses: actions/checkout@v7
-      - name: Setup pnpm (version from packageManager)
-        uses: pnpm/action-setup@v6
-        with:
-          package_json_file: ui/package.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - name: Lint (includes the 600-line and feature-boundary rules)
-        run: pnpm lint
-      - run: pnpm format:check
-      - name: Unit tests
-        run: pnpm test
-      - name: Type-check and bundle
-        run: pnpm build
-      - name: Upload WebUI bundle
-        uses: actions/upload-artifact@v7
-        with:
-          name: webroot
-          path: module/webroot
-          if-no-files-found: error
-
-  contract:
-    name: WebUI contracts against the real backend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Build the host backend
-        run: cargo build --locked --package duckd
-      - uses: pnpm/action-setup@v6
-        with:
-          package_json_file: ui/package.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-        working-directory: ui
-      # Every WebUI API call runs through duckctl.sh and duckd and is parsed with the
-      # feature's zod schemas, so a changed backend shape fails here.
-      - name: Contract tests
-        working-directory: ui
-        env:
-          DUCKD_REQUIRED: "1"
-        run: pnpm test:contract
-
-  e2e:
-    name: WebUI end-to-end
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ui
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-        with:
-          package_json_file: ui/package.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: Playwright against the mock KernelSU host
-        run: pnpm test:e2e
-      - name: Upload screenshots and report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: webui-e2e
-          path: |
-            ui/test-results
-            ui/playwright-report
-          retention-days: 14
-
   module:
     name: Module scripts
     runs-on: ubuntu-latest
@@ -216,7 +119,7 @@ jobs:
   package:
     name: Package module
     runs-on: ubuntu-latest
-    needs: [line-limit, rust, android-backend, webui, contract, e2e, module]
+    needs: [line-limit, rust, android-backend, module]
     permissions:
       contents: write
     environment: ${{ (github.event_name == 'push' || inputs.stable) && 'Telegram' || '' }}
@@ -229,11 +132,6 @@ jobs:
         with:
           name: duckd
           path: artifact/bin
-      - name: Download WebUI bundle
-        uses: actions/download-artifact@v8
-        with:
-          name: webroot
-          path: module/webroot
       - name: Assemble module
         run: |
           version="$(sed -n 's/^version=//p' module/module.prop)"

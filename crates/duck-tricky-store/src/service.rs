@@ -16,10 +16,9 @@ use crate::{
     error::TrickyError,
     keybox,
     model::{
-        BackendDetection, ConfigData, KeyboxStatus, PackageEntry, PolicySchema, PropStatus,
-        SaveRequest, TargetMode,
+        BackendDetection, ConfigData, KeyboxStatus, PackageEntry, PolicySchema, SaveRequest,
+        TargetMode,
     },
-    props,
     state::State,
     targets::{normalize_packages, normalize_targets},
 };
@@ -35,8 +34,6 @@ pub struct StatusData {
     pub keybox: Option<KeyboxStatus>,
     pub packages: Vec<PackageEntry>,
     pub system_apps: Vec<String>,
-    pub auto_add_new_apps: bool,
-    pub props: PropStatus,
     pub root_manager: Option<RootManager>,
 }
 
@@ -45,7 +42,6 @@ pub struct SaveData {
     pub backend: crate::model::Backend,
     pub target_count: usize,
     pub system_app_count: usize,
-    pub auto_add_new_apps: bool,
     /// A changed policy key only takes effect once the backend restarts (a reboot).
     pub restart_required: bool,
 }
@@ -87,13 +83,11 @@ pub fn status(ctx: &Context) -> Result<StatusData> {
         keybox,
         packages,
         system_apps: state.system_apps,
-        auto_add_new_apps: state.auto.enabled,
-        props: props::status(&ctx.sysroot),
         root_manager: root::detect(&ctx.sysroot),
     })
 }
 
-/// e.g. `Tricky Store (TS): 23 targets, keybox installed`. Skips the package manager, so it
+/// e.g. `Tricky Store (TS): 23 targets`. Skips the package manager, so it
 /// stays fast enough to run from a boot script.
 pub fn status_line(ctx: &Context) -> Option<String> {
     let Some(detection) = detect::detect_active(&ctx.sysroot) else {
@@ -108,13 +102,10 @@ pub fn status_line(ctx: &Context) -> Option<String> {
         .read(&ctx.sysroot)
         .map(|config| config.targets.len())
         .unwrap_or(0);
-    let keybox = keybox::status(&ctx.sysroot, &adapter.keybox_path(&ctx.sysroot));
-    let state = if !detection.active {
-        ", module disabled"
-    } else if keybox.exists {
-        ", keybox installed"
+    let state = if detection.active {
+        ""
     } else {
-        ", no keybox"
+        ", module disabled"
     };
     Some(format!(
         "{name} ({}): {targets} targets{state}",
@@ -166,22 +157,12 @@ pub fn save(ctx: &Context, request: SaveRequest) -> Result<SaveData> {
 
     let mut state = State::load(&ctx.paths, &ctx.sysroot)?;
     state.system_apps = normalize_packages(request.system_apps);
-    let was_enabled = state.auto.enabled;
-    state.auto.enabled = request.auto_add_new_apps;
-    if state.auto.enabled && !was_enabled {
-        state.auto.known_user_apps = normalize_packages(packages::list(PackageFilter::User));
-        state.auto.baseline_initialized = true;
-    } else if !state.auto.enabled {
-        state.auto.baseline_initialized = false;
-        state.auto.known_user_apps.clear();
-    }
     state.save(&ctx.paths)?;
 
     Ok(SaveData {
         backend: adapter.backend(),
         target_count,
         system_app_count: state.system_apps.len(),
-        auto_add_new_apps: state.auto.enabled,
         restart_required,
     })
 }

@@ -3,8 +3,8 @@ schemaVersion: 1
 id: duck-toolbox
 name: Duck ToolBox
 summary: >-
-  Android attestation toolbox with a Tricky Store, TEESimulator and OhMyKeymint
-  manager, RKP workbench and Qualcomm device ID provisioning in one WebUI.
+  Tricky Store, TEESimulator and OhMyKeymint target manager with automatic RKP
+  keybox renewal through this device's Qualcomm KeyMint TA.
 description: README.md
 license: MIT
 homepage: https://github.com/eltavine/Duck-ToolBox

@@ -9,13 +9,11 @@
 mod adapters;
 pub mod auto;
 mod detect;
-pub mod entry;
 pub mod error;
 pub mod exclude;
 pub mod keybox;
 pub mod model;
 mod policy;
-pub mod props;
 pub mod providers;
 mod service;
 pub mod state;

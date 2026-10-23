@@ -15,11 +15,6 @@ if (-not (Test-Path $binaryFullPath)) {
   throw "Android backend binary not found at '$binaryFullPath'. Build it first or pass -BinaryPath."
 }
 
-$webrootIndex = Join-Path $moduleDir "webroot\index.html"
-if (-not (Test-Path $webrootIndex)) {
-  throw "WebUI build output is missing at '$webrootIndex'. Run 'pnpm build' in ui first."
-}
-
 $versionLine = Get-Content $modulePropPath | Where-Object { $_ -match '^version=' } | Select-Object -First 1
 if (-not $versionLine) {
   throw "Could not read version from '$modulePropPath'."
