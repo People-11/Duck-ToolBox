@@ -14,4 +14,6 @@ else
   echo "! Issuance failed."
 fi
 echo "- $(sed -n 's/^description=//p' "$MODPATH/module.prop")"
+# Some managers close the log when the script ends; leave time to read it.
+sleep 30
 exit "$status"
