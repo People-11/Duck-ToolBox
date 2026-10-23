@@ -1,5 +1,5 @@
 # shellcheck shell=sh
-# Sourced by customize.sh and service.sh after they set MODPATH.
+# Sourced by customize.sh, service.sh and uninstall.sh after they set MODPATH.
 
 MODULE_ID="duck-toolbox"
 DATA_ROOT="${DUCK_TOOLBOX_DATA_ROOT:-/data/adb/$MODULE_ID}"
@@ -81,14 +81,16 @@ repair_runtime() {
   find "$VAR_DIR" -type f -exec chmod 0600 {} \; 2>/dev/null
 }
 
-# Tricky Addon's boot hash format: one lowercase hex string; an empty file is removed.
-normalize_boot_hash() {
-  file="/data/adb/boot_hash"
-  [ -f "$file" ] || return 0
-  hash_value="$(grep -v '^[[:space:]]*#' "$file" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
-  if [ -n "$hash_value" ]; then
-    printf '%s\n' "$hash_value" >"$file"
-  else
-    rm -f "$file"
-  fi
+# Earlier releases linked their WebUI and action.sh into the keystore module. Remove those
+# links so the keystore module's action button never runs this module's keybox issuance.
+remove_entry_links() {
+  for module in tricky_store oh_my_keymint teesim; do
+    for name in webroot action.sh; do
+      link="/data/adb/modules/$module/$name"
+      [ -L "$link" ] || continue
+      case "$(readlink "$link")" in
+        */modules/"$MODULE_ID"/* | */modules_update/"$MODULE_ID"/*) rm -f "$link" ;;
+      esac
+    done
+  done
 }

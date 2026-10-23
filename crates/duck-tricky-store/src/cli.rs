@@ -6,7 +6,7 @@ use duck_core::{BoxFuture, ClapFeature, CommandResult, Context, FeatureInfo, Int
 use serde::de::DeserializeOwned;
 
 use crate::{
-    auto, entry, error::code_of, exclude, keybox, model::SaveRequest, props, providers, service,
+    auto, error::code_of, exclude, keybox, model::SaveRequest, providers, service,
     state::KeyboxProvider, xposed,
 };
 
@@ -31,7 +31,7 @@ pub enum Command {
         #[command(subcommand)]
         command: PatchCommand,
     },
-    /// Detected backends, targets, packages, keybox and prop status.
+    /// Detected backends, targets, packages, keybox status.
     Status,
     /// Persist targets, policies, system apps and the auto-add toggle (JSON on stdin).
     Save(StdinArgs),
@@ -45,15 +45,8 @@ pub enum Command {
         #[command(subcommand)]
         command: AppsCommand,
     },
-    /// Prop handler and Verified Boot hash (JSON on stdin).
-    Props(StdinArgs),
-    /// Apply auto-target additions (run on boot).
-    AutoApply,
-    /// WebUI entry on the keystore module itself.
-    Entry {
-        #[command(subcommand)]
-        command: EntryCommand,
-    },
+    /// Add new and necessary apps and drop unnecessary ones (run on boot).
+    AutoApply(RefreshArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -61,17 +54,6 @@ pub enum PatchCommand {
     Preview(StdinArgs),
     Apply(StdinArgs),
     Restore(StdinArgs),
-}
-
-#[derive(Debug, Subcommand)]
-pub enum EntryCommand {
-    Status,
-    Enable,
-    Disable,
-    /// Restore the saved setting (run on boot).
-    Apply,
-    /// Remove every link this feature created (run on uninstall).
-    Remove,
 }
 
 #[derive(Debug, Subcommand)]
@@ -187,21 +169,9 @@ pub async fn run(command: Command, ctx: &Context) -> CommandResult {
         }
         Command::Keybox { command } => keybox_command(command, ctx).await,
         Command::Apps { command } => apps_command(command, ctx).await,
-        Command::Props(args) => {
-            let request = read_stdin_json::<props::PropRequest>(args.stdin_json);
-            request
-                .and_then(|request| props::save(ctx, request))
-                .into_command("tricky-store.props", code_of)
-        }
-        Command::AutoApply => auto::apply(ctx).into_command("tricky-store.auto-apply", code_of),
-        Command::Entry { command } => match command {
-            EntryCommand::Status => entry::status(ctx),
-            EntryCommand::Enable => entry::set(ctx, true),
-            EntryCommand::Disable => entry::set(ctx, false),
-            EntryCommand::Apply => entry::apply(ctx),
-            EntryCommand::Remove => entry::remove_all(ctx).and_then(|()| entry::status(ctx)),
-        }
-        .into_command("tricky-store.entry", code_of),
+        Command::AutoApply(args) => auto::apply(ctx, args.refresh)
+            .await
+            .into_command("tricky-store.auto-apply", code_of),
     }
 }
 

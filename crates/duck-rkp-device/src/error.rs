@@ -25,7 +25,8 @@ pub(crate) enum DeviceRkpError {
     AllMethodsFailed(String),
 }
 
-pub(crate) fn code_of(error: &anyhow::Error) -> &'static str {
+/// The stable error code of a device RKP failure.
+pub fn code_of(error: &anyhow::Error) -> &'static str {
     for cause in error.chain() {
         if let Some(error) = cause.downcast_ref::<DeviceRkpError>() {
             return match error {

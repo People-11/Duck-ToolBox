@@ -27,8 +27,6 @@ pub(crate) const DEFAULT_SYSTEM_APPS: &[&str] = &[
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AutoTargetState {
     #[serde(default)]
-    pub enabled: bool,
-    #[serde(default)]
     pub baseline_initialized: bool,
     #[serde(default)]
     pub known_user_apps: Vec<String>,
@@ -54,9 +52,6 @@ pub struct State {
     pub auto: AutoTargetState,
     #[serde(default = "default_providers")]
     pub providers: Vec<KeyboxProvider>,
-    /// Whether the keystore module should carry a WebUI entry for this manager.
-    #[serde(default)]
-    pub entry_enabled: bool,
 }
 
 impl Default for State {
@@ -69,7 +64,6 @@ impl Default for State {
                 .collect(),
             auto: AutoTargetState::default(),
             providers: default_providers(),
-            entry_enabled: false,
         }
     }
 }
@@ -132,10 +126,6 @@ impl State {
             crate::targets::normalize_packages(std::mem::take(&mut self.system_apps));
         self.auto.known_user_apps =
             crate::targets::normalize_packages(std::mem::take(&mut self.auto.known_user_apps));
-        if !self.auto.enabled {
-            self.auto.baseline_initialized = false;
-            self.auto.known_user_apps.clear();
-        }
     }
 }
 
@@ -193,7 +183,7 @@ mod tests {
 
         let state = State::load(&paths, &sysroot).unwrap();
 
-        assert!(state.auto.enabled);
+        assert!(state.auto.baseline_initialized);
         assert_eq!(state.auto.known_user_apps, vec!["com.old"]);
         assert!(
             state

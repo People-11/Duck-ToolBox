@@ -1,6 +1,6 @@
 [package]
 name = "duckd"
-description = "Duck ToolBox backend: a single binary exposing every feature as a JSON CLI"
+description = "Duck ToolBox backend: Tricky Store management and RKP keybox renewal as a JSON CLI"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,35 +11,20 @@ publish.workspace = true
 name = "duckd"
 path = "src/main.rs"
 
-# Each tool is an optional crate, so a build can ship any subset of them.
-[features]
-default = ["rkp", "rkp-device", "tee-attestation", "device-ids", "tricky-store", "play-integrity", "system"]
-play-integrity = ["dep:duck-play-integrity"]
-rkp = ["dep:duck-rkp"]
-rkp-device = ["dep:duck-rkp-device"]
-tee-attestation = ["dep:duck-tee-attestation"]
-device-ids = ["dep:duck-device-ids"]
-tricky-store = ["dep:duck-tricky-store"]
-system = ["dep:duck-system"]
-
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
 duck-core.workspace = true
 duck-platform.workspace = true
-duck-device-ids = { workspace = true, optional = true }
-duck-rkp = { workspace = true, optional = true }
-duck-rkp-device = { workspace = true, optional = true }
-duck-tee-attestation = { workspace = true, optional = true }
-duck-system = { workspace = true, optional = true }
-duck-play-integrity = { workspace = true, optional = true }
-duck-tricky-store = { workspace = true, optional = true }
+duck-play-integrity.workspace = true
+duck-rkp-device.workspace = true
+duck-tricky-store.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+time.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-duck-rkp.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 

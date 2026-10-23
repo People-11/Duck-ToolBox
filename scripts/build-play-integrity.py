@@ -138,7 +138,6 @@ def main():
             "This script retrieves pinned dependency sources and applies the recorded ShadowHook change.\n"
         )
     (notices.parent / "play-integrity-source.tar.gz").unlink(missing_ok=True)
-    (ROOT / "module/webroot/licenses/play-integrity-source.tar.gz").unlink(missing_ok=True)
     artifacts = [*(p for p in payload.rglob("*") if p.is_file()), *zygisk.glob("*.so")]
     (payload / "build.json").write_text(json.dumps({
         "upstream_revision": json.loads((ENGINE / "UPSTREAM.json").read_text())["revision"],

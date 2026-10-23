@@ -6,10 +6,6 @@ use std::{
     process::{Command, Stdio},
 };
 
-use duck_rkp::{
-    cose::{DeviceKeys, build_csr, generate_ec_keypair},
-    profile::{DeviceInfo, DiceCurve, FingerprintConfig, KeySource, ProfileData},
-};
 use serde_json::Value;
 
 struct Env {
@@ -87,135 +83,6 @@ fn install_backend(env: &Env, id: &str, version_code: u64) {
     .unwrap();
 }
 
-fn valid_device_info() -> DeviceInfo {
-    DeviceInfo {
-        brand: "google".into(),
-        model: "Pixel".into(),
-        device: "pixel".into(),
-        product: "pixel".into(),
-        manufacturer: "Google".into(),
-        fused: 1,
-        vb_state: "green".into(),
-        os_version: "13".into(),
-        security_level: "tee".into(),
-        bootloader_state: "locked".into(),
-        boot_patch_level: 20260101,
-        system_patch_level: 202601,
-        vendor_patch_level: 20260101,
-        vbmeta_digest: Some("33".repeat(32)),
-        dice_issuer: "CN=Android".into(),
-        dice_subject: "CN=Android".into(),
-    }
-}
-
-#[test]
-fn every_envelope_reports_api_version() {
-    let env = env("api");
-    let payload = run(&env, &["rkp", "profile", "show", "--json"]);
-    assert_eq!(payload["ok"], true);
-    assert_eq!(payload["api"], 1);
-    assert_eq!(payload["command"], "rkp.profile.show");
-    assert_eq!(payload["data"]["profile"]["curve"], "ed25519");
-}
-
-#[test]
-fn profile_save_then_info_round_trip() {
-    let env = env("round-trip");
-    let profile = ProfileData {
-        key_source: KeySource::Seed {
-            seed_hex: "11".repeat(32),
-        },
-        curve: DiceCurve::P256,
-        device: DeviceInfo::default(),
-        fingerprint: FingerprintConfig {
-            value: "duck/device/model:13/ABC/1:user/release-keys".into(),
-        },
-        server_url: "https://example.invalid".into(),
-        num_keys: 2,
-        output_path: "var/outputs/custom-keybox.xml".into(),
-    };
-
-    let saved = run_json(
-        &env,
-        &["rkp", "profile", "save", "--stdin-json"],
-        &serde_json::to_value(&profile).unwrap(),
-    );
-    assert!(
-        saved.status.success(),
-        "{}",
-        String::from_utf8_lossy(&saved.stderr)
-    );
-
-    let info = run(&env, &["rkp", "info", "--json"]);
-    assert_eq!(info["data"]["curve"], "p256");
-    assert_eq!(info["data"]["num_keys"], 2);
-    assert_eq!(info["data"]["mode"], "direct-seed");
-    assert_eq!(info["data"]["public_key_hex"].as_str().unwrap().len(), 128);
-}
-
-#[test]
-fn verify_command_emits_report() {
-    let env = env("verify");
-    let keys = DeviceKeys::from_seed([0x11; 32]);
-    let ec_key = generate_ec_keypair().unwrap();
-    let csr = build_csr(
-        &keys,
-        &[0x22; 32],
-        std::slice::from_ref(&ec_key.cose_public),
-        &[0x33; 32],
-        &[0x44; 8],
-        &valid_device_info(),
-        2,
-    )
-    .unwrap();
-
-    let csr_path = env.data.join("var/outputs/fixture.cbor");
-    fs::create_dir_all(csr_path.parent().unwrap()).unwrap();
-    fs::write(&csr_path, csr.csr_bytes).unwrap();
-
-    let verify = run(
-        &env,
-        &["rkp", "verify", "var/outputs/fixture.cbor", "--json"],
-    );
-    assert_eq!(verify["ok"], true);
-    assert_eq!(verify["data"]["report"]["signature_valid"], true);
-}
-
-#[test]
-fn keybox_preflight_rejects_blank_device_field() {
-    let env = env("preflight");
-    let mut device = DeviceInfo::default();
-    device.brand.clear();
-    let profile = ProfileData {
-        key_source: KeySource::Seed {
-            seed_hex: "11".repeat(32),
-        },
-        device,
-        ..ProfileData::default()
-    };
-    run_json(
-        &env,
-        &["rkp", "profile", "save", "--stdin-json"],
-        &serde_json::to_value(&profile).unwrap(),
-    );
-
-    let output = command(&env)
-        .args(["rkp", "keybox", "--json"])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let payload: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(payload["error"]["code"], "missing_device_field");
-}
-
-#[test]
-fn device_ids_defaults_reports_dry_run_profile() {
-    let env = env("device-ids");
-    let payload = run(&env, &["device-ids", "defaults", "--json"]);
-    assert_eq!(payload["command"], "device-ids.defaults");
-    assert_eq!(payload["data"]["ta_name"], "keymaster64");
-}
-
 #[test]
 fn features_manifest_lists_every_registered_tool() {
     let env = env("features");
@@ -231,13 +98,9 @@ fn features_manifest_lists_every_registered_tool() {
         ids,
         [
             "integrity-transaction",
-            "rkp",
             "rkp-device",
-            "tee-attestation",
-            "device-ids",
             "tricky-store",
-            "play-integrity",
-            "system"
+            "play-integrity"
         ]
     );
     assert_eq!(payload["data"]["api"], 1);
@@ -315,94 +178,6 @@ fn usage_errors_are_json_envelopes() {
 }
 
 #[test]
-fn system_artifacts_reports_runtime_paths() {
-    let env = env("artifacts");
-    let payload = run(&env, &["system", "artifacts"]);
-    assert_eq!(payload["command"], "system.artifacts");
-    assert!(
-        payload["data"]["log_path"]
-            .as_str()
-            .unwrap()
-            .ends_with("duckd.log")
-    );
-}
-
-#[test]
-fn system_info_reads_module_and_kernel_state() {
-    let env = env("system-info");
-    fs::create_dir_all(env.sysroot.join("proc/sys/kernel")).unwrap();
-    fs::write(env.sysroot.join("proc/sys/kernel/osrelease"), "6.1.99\n").unwrap();
-    let payload = run(&env, &["system", "info"]);
-    assert_eq!(payload["data"]["module"]["id"], "duck-toolbox");
-    assert_eq!(payload["data"]["device"]["kernel_release"], "6.1.99");
-    assert!(payload["data"]["root_manager"].is_null());
-}
-
-#[test]
-fn system_uninstall_marks_magisk_module_for_removal() {
-    let env = env("uninstall");
-    fs::create_dir_all(env.sysroot.join("data/adb/magisk")).unwrap();
-    let module_dir = env.sysroot.join("data/adb/modules/duck-toolbox");
-    fs::create_dir_all(&module_dir).unwrap();
-
-    let payload = run(&env, &["system", "uninstall"]);
-    assert_eq!(payload["data"]["reboot_required"], true);
-    assert!(module_dir.join("remove").is_file());
-}
-
-#[test]
-fn system_open_url_rejects_non_web_schemes() {
-    let env = env("open-url");
-    let output = command(&env)
-        .args(["system", "open-url", "intent://evil"])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let payload: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(payload["error"]["code"], "invalid_url");
-}
-
-#[test]
-fn describe_summarizes_feature_status() {
-    let env = env("describe");
-    install_backend(&env, "tricky_store", 246);
-    let payload = run(&env, &["describe"]);
-    let description = payload["data"]["description"].as_str().unwrap();
-    assert!(
-        description.contains("(TS): 0 targets, no keybox"),
-        "{description}"
-    );
-    assert_eq!(payload["data"]["applied"], false);
-}
-
-#[test]
-fn tricky_store_entry_links_the_webroot() {
-    let env = env("entry");
-    fs::create_dir_all(env.root.join("webroot")).unwrap();
-    install_backend(&env, "tricky_store", 246);
-
-    let payload = run(&env, &["tricky-store", "entry", "enable"]);
-    assert_eq!(payload["data"]["linked"], true);
-    let link = env.sysroot.join("data/adb/modules/tricky_store/webroot");
-    assert_eq!(fs::read_link(&link).unwrap(), env.root.join("webroot"));
-
-    run(&env, &["tricky-store", "entry", "remove"]);
-    assert!(!link.exists());
-}
-
-#[test]
-fn command_log_keeps_outcomes_only() {
-    let env = env("log");
-    run(&env, &["rkp", "profile", "show"]);
-    let payload = run(&env, &["system", "log", "--limit", "5"]);
-    let entries = payload["data"]["entries"].as_array().unwrap();
-    assert_eq!(entries[0]["command"], "rkp.profile.show");
-    assert_eq!(entries[0]["ok"], true);
-    let raw = fs::read_to_string(env.data.join("var/logs/duckd.log")).unwrap();
-    assert!(!raw.contains("\"data\""));
-}
-
-#[test]
 fn tricky_store_status_without_backend() {
     let env = env("ts-none");
     let payload = run(&env, &["tricky-store", "status", "--json"]);
@@ -475,32 +250,73 @@ fn tricky_store_keybox_import_accepts_picked_content() {
     );
 }
 
-#[test]
-fn system_files_lists_matching_files() {
-    let env = env("ts-files");
-    let dir = env.sysroot.join("storage/emulated/0/Download");
-    fs::create_dir_all(dir.join("nested")).unwrap();
-    fs::write(dir.join("keybox.xml"), "<xml/>").unwrap();
-    fs::write(dir.join("notes.txt"), "no").unwrap();
-
-    let payload = run(
-        &env,
-        &[
-            "system",
-            "files",
-            "--path",
-            "/storage/emulated/0/Download",
-            "--extension",
-            "xml",
-        ],
-    );
-    let names: Vec<&str> = payload["data"]["entries"]
-        .as_array()
+fn description(env: &Env) -> String {
+    fs::read_to_string(env.root.join("module.prop"))
         .unwrap()
-        .iter()
-        .map(|entry| entry["name"].as_str().unwrap())
-        .collect();
-    assert!(names.contains(&"nested"));
-    assert!(names.contains(&"keybox.xml"));
-    assert!(!names.contains(&"notes.txt"));
+        .lines()
+        .find_map(|line| line.strip_prefix("description="))
+        .unwrap()
+        .to_owned()
+}
+
+#[test]
+fn renew_without_backend_only_reports() {
+    let env = env("renew-none");
+    let payload = run(&env, &["renew"]);
+    assert_eq!(payload["data"]["renewed"], false);
+    assert!(payload["data"]["error"].is_null());
+    assert!(
+        description(&env).contains("no Tricky Store"),
+        "{}",
+        description(&env)
+    );
+    assert!(!env.data.join("var/renew.json").exists());
+}
+
+#[test]
+fn renew_leaves_a_valid_keybox_alone() {
+    let env = env("renew-valid");
+    install_backend(&env, "tricky_store", 246);
+    run(&env, &["tricky-store", "keybox", "generate"]);
+
+    let payload = run(&env, &["renew"]);
+    assert_eq!(payload["data"]["renewed"], false);
+    assert!(payload["data"]["expires_at"].as_u64().is_some());
+    let text = description(&env);
+    assert!(text.starts_with("✅ Keybox valid until"), "{text}");
+    assert!(text.ends_with("| tricky_store (TS): 0 targets"), "{text}");
+    assert!(!env.data.join("var/renew.json").exists());
+}
+
+#[test]
+fn renew_records_a_failed_issuance_and_waits_before_retrying() {
+    let env = env("renew-missing");
+    install_backend(&env, "tricky_store", 246);
+
+    // The host is not a Qualcomm Android device, so issuance fails before any request.
+    let payload = run(&env, &["renew"]);
+    assert_eq!(payload["data"]["renewed"], false);
+    let error = payload["data"]["error"].as_str().unwrap();
+    assert!(error.starts_with("unsupported_device: "), "{error}");
+    assert!(
+        description(&env).starts_with("❌ No usable keybox; renewal failed (unsupported_device")
+    );
+
+    let state = fs::read_to_string(env.data.join("var/renew.json")).unwrap();
+    run(&env, &["renew"]);
+    assert_eq!(
+        fs::read_to_string(env.data.join("var/renew.json")).unwrap(),
+        state
+    );
+
+    let forced = command(&env).args(["renew", "--force"]).output().unwrap();
+    assert!(!forced.status.success());
+    let payload: Value = serde_json::from_slice(&forced.stdout).unwrap();
+    assert_eq!(payload["ok"], false);
+    assert!(
+        payload["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("unsupported_device")
+    );
 }

@@ -595,24 +595,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "duck-device-ids"
-version = "0.2.0-Stable"
-dependencies = [
- "anyhow",
- "ciborium",
- "clap",
- "duck-core",
- "duck-platform",
- "hex",
- "libc",
- "libloading",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
 name = "duck-platform"
 version = "0.2.0-Stable"
 dependencies = [
@@ -704,46 +686,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "duck-system"
-version = "0.2.0-Stable"
-dependencies = [
- "anyhow",
- "clap",
- "duck-core",
- "duck-platform",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "zip",
-]
-
-[[package]]
-name = "duck-tee-attestation"
-version = "0.2.0-Stable"
-dependencies = [
- "anyhow",
- "base64ct",
- "ciborium",
- "clap",
- "duck-core",
- "duck-rkp",
- "hex",
- "libc",
- "p256",
- "quick-xml",
- "rcgen",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror",
- "x509-cert",
- "zeroize",
-]
-
-[[package]]
 name = "duck-tricky-store"
 version = "0.2.0-Stable"
 dependencies = [
@@ -776,17 +718,14 @@ dependencies = [
  "anyhow",
  "clap",
  "duck-core",
- "duck-device-ids",
  "duck-platform",
  "duck-play-integrity",
- "duck-rkp",
  "duck-rkp-device",
- "duck-system",
- "duck-tee-attestation",
  "duck-tricky-store",
  "serde",
  "serde_json",
  "tempfile",
+ "time",
  "tokio",
 ]
 

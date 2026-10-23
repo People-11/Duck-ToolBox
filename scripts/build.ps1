@@ -6,7 +6,6 @@ param(
   [string]$Profile = "release",
   [string]$AndroidAbi = "arm64-v8a",
   [switch]$SkipRust,
-  [switch]$SkipWeb,
   [switch]$PackageModule
 )
 
@@ -14,7 +13,6 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$uiDir = Join-Path $repoRoot "ui"
 $packageScript = Join-Path $PSScriptRoot "package-module.ps1"
 $toolchainBin = Join-Path $NdkRoot "toolchains\llvm\prebuilt\windows-x86_64\bin"
 $binaryRelativePath = "target\aarch64-linux-android\$Profile\duckd"
@@ -101,74 +99,6 @@ if (-not $SkipRust) {
   }
 
   Write-Host "Rust binary: $binaryPath" -ForegroundColor Green
-}
-
-if (-not $SkipWeb) {
-  Assert-Command "pnpm" "Install pnpm 12 (run corepack enable) before running this script."
-
-  Invoke-Step "Installing WebUI dependencies" {
-    Push-Location $uiDir
-    try {
-      Invoke-Checked { & pnpm install --frozen-lockfile } "pnpm install failed."
-    }
-    finally {
-      Pop-Location
-    }
-  }
-
-  Invoke-Step "Building WebUI" {
-    Assert-Command "git" "Git is required to pin the Play Integrity source to this build."
-    $sourceCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
-    if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[0-9a-f]{40}
-
-  $webrootIndex = Join-Path $repoRoot "module\webroot\index.html"
-  if (-not (Test-Path $webrootIndex)) {
-    throw "Expected WebUI output was not produced at '$webrootIndex'."
-  }
-
-  Write-Host "WebUI output: $webrootIndex" -ForegroundColor Green
-}
-
-Invoke-Step "Building the independent Play Integrity engine" {
-  Invoke-Checked { python (Join-Path $PSScriptRoot "build-play-integrity.py") --sdk $SdkRoot } "Play Integrity engine build failed."
-}
-
-if ($PackageModule) {
-  Invoke-Step "Packaging KernelSU module zip" {
-    & $packageScript -BinaryPath $binaryRelativePath
-    if ($LASTEXITCODE -ne 0) {
-      throw "Module packaging failed."
-    }
-  }
-}
-
-Write-Host ""
-Write-Host "Build completed successfully." -ForegroundColor Green
-) {
-      throw "Could not resolve the exact Play Integrity source commit."
-    }
-    Push-Location $uiDir
-    $previousSourceCommit = $env:VITE_PIF_SOURCE_COMMIT
-    try {
-      $env:VITE_PIF_SOURCE_COMMIT = $sourceCommit
-      Invoke-Checked { & pnpm build } "WebUI build failed."
-    }
-    finally {
-      if ($null -eq $previousSourceCommit) {
-        Remove-Item Env:VITE_PIF_SOURCE_COMMIT -ErrorAction SilentlyContinue
-      } else {
-        $env:VITE_PIF_SOURCE_COMMIT = $previousSourceCommit
-      }
-      Pop-Location
-    }
-  }
-
-  $webrootIndex = Join-Path $repoRoot "module\webroot\index.html"
-  if (-not (Test-Path $webrootIndex)) {
-    throw "Expected WebUI output was not produced at '$webrootIndex'."
-  }
-
-  Write-Host "WebUI output: $webrootIndex" -ForegroundColor Green
 }
 
 Invoke-Step "Building the independent Play Integrity engine" {

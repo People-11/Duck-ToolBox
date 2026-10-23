@@ -252,18 +252,15 @@ fn run(ctx: &Context, command: Command) -> Result<Value> {
         }
     }
 }
-#[cfg(feature = "tricky-store")]
 fn patch_prepare(ctx: &Context, value: &Value) -> Result<Value> {
     if value["target"] != "tricky-store" {
         bail!("unsupported patch participant");
     }
     duck_tricky_store::patch::prepare(ctx, &serde_json::from_value(value.clone())?)
 }
-#[cfg(feature = "tricky-store")]
 fn patch_commit(ctx: &Context, token: &str) -> Result<Value> {
     duck_tricky_store::patch::commit_prepared(ctx, token)
 }
-#[cfg(feature = "tricky-store")]
 fn patch_restore(ctx: &Context, token: &str) -> Result<Value> {
     duck_tricky_store::patch::restore(
         ctx,
@@ -272,16 +269,4 @@ fn patch_restore(ctx: &Context, token: &str) -> Result<Value> {
             ..Default::default()
         },
     )
-}
-#[cfg(not(feature = "tricky-store"))]
-fn patch_prepare(_: &Context, _: &Value) -> Result<Value> {
-    bail!("keystore feature is unavailable")
-}
-#[cfg(not(feature = "tricky-store"))]
-fn patch_commit(_: &Context, _: &str) -> Result<Value> {
-    bail!("keystore feature is unavailable")
-}
-#[cfg(not(feature = "tricky-store"))]
-fn patch_restore(_: &Context, _: &str) -> Result<Value> {
-    bail!("keystore feature is unavailable")
 }

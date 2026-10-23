@@ -213,12 +213,6 @@ pub struct BackendDetection {
     pub active: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PropStatus {
-    pub prop_handler_enabled: bool,
-    pub boot_hash: Option<String>,
-}
-
 /// Request written by the WebUI's "Save" action.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct SaveRequest {
@@ -235,6 +229,4 @@ pub struct SaveRequest {
     pub per_app_policy: BTreeMap<String, Policy>,
     #[serde(default)]
     pub system_apps: Vec<String>,
-    #[serde(default)]
-    pub auto_add_new_apps: bool,
 }

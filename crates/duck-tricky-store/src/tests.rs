@@ -82,7 +82,6 @@ fn tricky_store_ini_round_trips_targets_and_modes() {
             )]
             .into(),
             system_apps: vec!["com.google.android.gms".into()],
-            auto_add_new_apps: false,
         },
     )
     .unwrap();

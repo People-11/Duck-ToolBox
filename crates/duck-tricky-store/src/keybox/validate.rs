@@ -3,8 +3,11 @@
 use std::io::Cursor;
 
 use anyhow::{Context, Result};
+use base64ct::{Base64, Encoding};
 use quick_xml::{Reader, Writer, XmlVersion, events::Event, name::QName};
 use serde::Serialize;
+
+use x509_cert::{Certificate, der::Decode};
 
 use crate::error::TrickyError;
 
@@ -176,13 +179,32 @@ pub fn validate(xml: &str) -> Result<KeyboxSummary> {
     Ok(summary)
 }
 
+/// The earliest `notAfter` (Unix seconds) of any certificate in the file: the moment the
+/// keybox stops working. `None` when no certificate can be read.
+pub fn earliest_expiry(xml: &str) -> Option<u64> {
+    xml.split("-----BEGIN CERTIFICATE-----")
+        .skip(1)
+        .filter_map(|block| {
+            let base64: String = block
+                .split("-----END CERTIFICATE-----")
+                .next()?
+                .chars()
+                .filter(|ch| !ch.is_whitespace())
+                .collect();
+            let certificate = Certificate::from_der(&Base64::decode_vec(&base64).ok()?).ok()?;
+            let validity = certificate.tbs_certificate().validity();
+            Some(validity.not_after.to_unix_duration().as_secs())
+        })
+        .min()
+}
+
 fn local_name(name: QName<'_>) -> String {
     name.local_name().as_ref().to_owned()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{clean, validate};
+    use super::{clean, earliest_expiry, validate};
 
     const MINIMAL: &str = r#"<?xml version="1.0"?>
 <AndroidAttestation>
@@ -194,6 +216,14 @@ mod tests {
     </Key>
   </Keybox>
 </AndroidAttestation>"#;
+
+    #[test]
+    fn earliest_expiry_reads_the_soonest_certificate() {
+        let aosp = include_str!("../../assets/aosp-keybox.xml");
+        // The AOSP EC leaf ends 2026-01-08 00:46:09 UTC; its other certificates last longer.
+        assert_eq!(earliest_expiry(aosp), Some(1_767_833_169));
+        assert_eq!(earliest_expiry(MINIMAL), None);
+    }
 
     #[test]
     fn accepts_minimal_keybox() {

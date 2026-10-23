@@ -16,4 +16,5 @@ mod status;
 mod v1;
 mod worker;
 
-pub use cli::FEATURE;
+pub use cli::{FEATURE, issue_keybox};
+pub use error::code_of;

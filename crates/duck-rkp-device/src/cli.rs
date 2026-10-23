@@ -44,6 +44,27 @@ pub enum Command {
     },
 }
 
+/// Issues one keybox with every method tried in turn (`provision --protocol auto`) and
+/// returns its XML. The caller acknowledges the limitations on the user's behalf.
+pub async fn issue_keybox(ctx: &Context) -> anyhow::Result<String> {
+    let server = service::Google::new(None)?;
+    let device = service::Device {
+        paths: &ctx.paths,
+        sysroot: &ctx.sysroot,
+    };
+    let data = service::provision(
+        ctx,
+        true,
+        service::Options::default(),
+        &service::RandomKeys,
+        &device,
+        &server,
+        &service::DeviceEnvironment,
+    )
+    .await?;
+    Ok(data.keybox_xml)
+}
+
 fn dispatch<'a>(command: Command, ctx: &'a Context) -> BoxFuture<'a, CommandResult> {
     Box::pin(async move {
         match command {

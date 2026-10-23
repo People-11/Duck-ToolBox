@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Scope
+
+- Remove the WebUI, the RKP workbench commands, the TEE Attestation Extractor, the Device
+  ID Provisioner, the module/update tool and the sensitive-prop handler. The module keeps
+  the keystore target manager and the device RKP issuer.
+
+### Keybox renewal
+
+- Add `duckd renew`: read the earliest certificate expiry of the active keystore module's
+  keybox, issue and install a keybox through the device RKP issuer when it expires within
+  a day or none is readable, and write the state to `module.prop`'s description.
+  Automatic attempts run every 10 minutes after boot, at most once per hour.
+- The action button issues a keybox immediately (`renew --force`) on every root manager.
+
+### Target list
+
+- Always add new user apps (every user app on the first run) and installed necessary
+  system apps, and remove Tricky Addon's unnecessary apps and Xposed modules, at boot
+  and every 10 minutes.
+- Remove links that earlier releases placed in the keystore module on install.
+
 ## 0.2.0-Stable - 2026-10-24
 
 ### Integrity and keystore compatibility

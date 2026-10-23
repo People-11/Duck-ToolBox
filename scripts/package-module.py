@@ -42,7 +42,6 @@ def check_source_checkout(commit, root=ROOT):
 
 
 def validate():
-    require(MODULE / "webroot/index.html")
     require(MODULE / "play-integrity/build.json")
     manifest = json.loads((MODULE / "play-integrity/build.json").read_text())
     upstream = json.loads((ROOT / "components/play-integrity/UPSTREAM.json").read_text())
@@ -71,12 +70,6 @@ def validate():
     require(source_notice)
     if source_url not in source_notice.read_text():
         raise ValueError("Corresponding-source notice does not match the engine commit")
-    # The WebUI must link to the same immutable commit embedded in build.json.
-    if not any(
-        manifest["source_commit"].encode() in path.read_bytes()
-        for path in (MODULE / "webroot").rglob("*.js")
-    ):
-        raise ValueError("WebUI corresponding-source commit is missing or mismatched")
     if any(MODULE.rglob("play-integrity-source.tar.gz")):
         raise ValueError("Legacy corresponding-source archive must not be bundled")
 

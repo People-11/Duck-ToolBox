@@ -27,7 +27,6 @@ const LOCKFILES: &[&str] = &[
 
 /// Build output that may exist in a checkout but is not source.
 const OUTPUT_DIRS: &[&str] = &[
-    "module/webroot/",
     "target/",
     "module/play-integrity/",
     "module/zygisk/",
@@ -156,7 +155,6 @@ mod tests {
     fn exempts_only_lockfiles_and_build_output() {
         assert!(is_exempt("ui/pnpm-lock.yaml"));
         assert!(is_exempt("Cargo.lock"));
-        assert!(is_exempt("module/webroot/assets/index.js"));
         assert!(!is_exempt("ui/src/components/ui/button/index.ts"));
         assert!(!is_exempt("crates/duck-tricky-store/src/assets.rs"));
     }
