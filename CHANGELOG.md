@@ -23,6 +23,11 @@
   and every 10 minutes.
 - Remove links that earlier releases placed in the keystore module on install.
 
+### Build
+
+- Optimize the release binary for size (`opt-level = "z"`, `panic = "abort"`) and
+  drop HTTP/2 from the HTTP client; requests use HTTP/1.1.
+
 ## 0.2.0-Stable - 2026-10-24
 
 ### Integrity and keystore compatibility
