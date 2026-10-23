@@ -13,7 +13,7 @@ The action button issues and installs a keybox immediately.
 
 ## Target list
 
-At boot and every 10 minutes afterwards (`tricky-store auto-apply`):
+Once at boot, then whenever the package list changes (`tricky-store auto-apply`):
 
 - user apps installed since the previous run are added; the first run adds every user
   app;
@@ -21,6 +21,11 @@ At boot and every 10 minutes afterwards (`tricky-store auto-apply`):
   Store, and the OPPO/ColorOS services Tricky Addon lists);
 - unnecessary apps are removed: Tricky Addon's list of root managers and tools (bundled,
   refreshed from upstream at boot) and every installed Xposed module.
+
+Package changes are detected with BusyBox `inotifyd` on `/data/system/packages.list`,
+which PackageManager rewrites on every install, update and removal. A burst of changes (a
+restore, a batch of updates) is handled once, 10 seconds after the last change. Without
+`inotifyd`, or if it stops, the list is checked every 10 minutes instead.
 
 Apps you remove from the list stay removed unless they are necessary apps. Modes, policies
 and every other part of the keystore module's configuration are left as they are. Supported
@@ -33,7 +38,7 @@ OhMyKeymint `injector.toml`.
 `notAfter` among its certificates. When that is less than a day away, already past, or no
 certificate can be read (including no keybox at all), it issues a new keybox through the
 device RKP issuer below and installs it in place of the old one (the previous file is kept
-as a backup). The boot script runs it every 10 minutes; `sleep` pauses in deep sleep, so
+as a backup). The boot script runs it every 30 minutes; `sleep` pauses in deep sleep, so
 checks follow the time the device is awake. Automatic attempts are limited to one per hour,
 whatever the outcome; `duckd renew --force` (the action button) skips both checks.
 
@@ -119,7 +124,7 @@ Every command prints one JSON envelope: `{ ok, api, command, data, error, ts }`.
 | --- | --- |
 | `customize.sh` | Checks the root manager, ABI and API level; prepares `/data/adb/duck-toolbox`; removes the WebUI/action links earlier releases put into the keystore module; requests hot install from metamodules that support it. |
 | `service.sh` | Repairs the runtime directory. On Magisk, which has no boot-completed stage, it waits for boot and runs `boot-completed.sh`. |
-| `boot-completed.sh` | Starts the 10-minute loop of `renew` and `tricky-store auto-apply`, and sets the TSupport-Advance stop flag when that module is installed. |
+| `boot-completed.sh` | Runs `tricky-store auto-apply` and starts its package-change watcher, starts the 30-minute `renew` loop, and sets the TSupport-Advance stop flag when that module is installed. |
 | `action.sh` | `renew --force`, then prints the new description. |
 | `uninstall.sh` | Removes leftover entry links, the TSupport-Advance flag and `/data/adb/duck-toolbox`, including issued keyboxes and private keys. |
 

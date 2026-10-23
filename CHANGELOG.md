@@ -13,14 +13,15 @@
 - Add `duckd renew`: read the earliest certificate expiry of the active keystore module's
   keybox, issue and install a keybox through the device RKP issuer when it expires within
   a day or none is readable, and write the state to `module.prop`'s description.
-  Automatic attempts run every 10 minutes after boot, at most once per hour.
+  Automatic checks run every 30 minutes after boot, with at most one issuance per hour.
 - The action button issues a keybox immediately (`renew --force`) on every root manager.
 
 ### Target list
 
 - Always add new user apps (every user app on the first run) and installed necessary
-  system apps, and remove Tricky Addon's unnecessary apps and Xposed modules, at boot
-  and every 10 minutes.
+  system apps, and remove Tricky Addon's unnecessary apps and Xposed modules: at boot,
+  then when `/data/system/packages.list` changes (BusyBox `inotifyd`, 10-second
+  debounce), falling back to every 10 minutes without `inotifyd`.
 - Remove links that earlier releases placed in the keystore module on install.
 
 ### Build
