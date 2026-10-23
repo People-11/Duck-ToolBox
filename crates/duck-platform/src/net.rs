@@ -38,7 +38,7 @@ pub fn embedded_rustls_config() -> ClientConfig {
     let mut config = ClientConfig::builder()
         .with_root_certificates(roots)
         .with_no_client_auth();
-    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+    config.alpn_protocols = vec![b"http/1.1".to_vec()];
     config
 }
 
@@ -100,10 +100,10 @@ mod tests {
     use super::{embedded_rustls_config, is_web_url};
 
     #[test]
-    fn embedded_config_offers_h2_and_http11() {
+    fn embedded_config_offers_http11_only() {
         assert_eq!(
             embedded_rustls_config().alpn_protocols,
-            vec![b"h2".to_vec(), b"http/1.1".to_vec()]
+            vec![b"http/1.1".to_vec()]
         );
     }
 
