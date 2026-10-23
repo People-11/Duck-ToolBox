@@ -7,11 +7,8 @@ MODPATH=${0%/*}
 echo "- Issuing a keybox with this device's KeyMint TA..."
 echo "  Only some Qualcomm devices work, and only RKP certificates are issued."
 if "$MODPATH/bin/duckctl.sh" renew --force >/dev/null 2>&1; then
-  status=0
   echo "- Keybox installed."
 else
-  status=1
   echo "! Issuance failed."
 fi
 echo "- $(sed -n 's/^description=//p' "$MODPATH/module.prop")"
-exit "$status"
