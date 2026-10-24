@@ -243,7 +243,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Telegram caption tests
+      - name: Telegram notification tests
         run: python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py'
       - name: Installer platform and API guards
         run: python3 scripts/test-module-install.py
@@ -329,36 +329,8 @@ jobs:
           path: module/
           include-hidden-files: true
           if-no-files-found: error
-      - name: Push module zip to Telegram
-        if: github.event_name == 'push' || inputs.stable
-        env:
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-          COMMIT_AUTHOR: ${{ github.event.head_commit.author.name }}
-          GIT_BRANCH: ${{ github.ref_name }}
-          GIT_SHA: ${{ github.sha }}
-          GITHUB_ACTION_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
-            echo "Missing Telegram secrets; skipping upload." >&2
-            exit 0
-          fi
-          caption="$(python3 .github/workflows/scripts/telegram.py build-caption --artifact-path "${MODULE_PATH}")"
-          response_file="$(mktemp)"
-          http_code=$(curl --silent --show-error --output "${response_file}" --write-out "%{http_code}" \
-            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
-            -F "chat_id=${TELEGRAM_CHAT_ID}" \
-            -F "document=@${MODULE_PATH}" \
-            -F "parse_mode=HTML" \
-            --form-string "caption=${caption}")
-          if [ "${http_code}" != "200" ]; then
-            echo "Telegram API returned HTTP ${http_code}." >&2
-            cat "${response_file}" >&2
-            exit 1
-          fi
-          python3 .github/workflows/scripts/telegram.py validate-response --response-file "${response_file}"
       - name: Publish release
+        id: publish-release
         if: >-
           ${{ !cancelled() && steps.validate-module.outcome == 'success' &&
               github.ref == 'refs/heads/main' &&
@@ -386,3 +358,24 @@ jobs:
             --title "${tag}" \
             --notes-file "${notes_file}" \
             "${release_flags[@]}"
+          asset_url="$(gh release view "${tag}" --json assets --jq '.assets[0].url')"
+          if [ -z "${asset_url}" ] || [ "${asset_url}" = null ]; then
+            echo "Published release did not return a module asset URL." >&2
+            exit 1
+          fi
+          echo "asset-url=${asset_url}" >> "$GITHUB_OUTPUT"
+      - name: Notify Telegram with module or release link
+        if: steps.publish-release.outcome == 'success' && (github.event_name == 'push' || inputs.stable)
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_AUTHOR: ${{ github.event.head_commit.author.name }}
+          GIT_BRANCH: ${{ github.ref_name }}
+          GIT_SHA: ${{ github.sha }}
+          GITHUB_ACTION_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RELEASE_ASSET_URL: ${{ steps.publish-release.outputs.asset-url }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python3 .github/workflows/scripts/telegram.py send \
+            --artifact-path "${MODULE_PATH}" \
+            --release-asset-url "${RELEASE_ASSET_URL}"

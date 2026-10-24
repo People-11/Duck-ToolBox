@@ -6,11 +6,20 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
+MAX_DOCUMENT_BYTES = 50 * 1024 * 1024
+
+
 def _escape_html(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -65,7 +74,7 @@ def _render_caption(
     return "\n".join(lines)
 
 
-def build_caption(artifact_path: str) -> None:
+def build_caption(artifact_path: str) -> str:
     commit_message = os.environ.get("COMMIT_MESSAGE", "").strip()
     commit_author = os.environ.get("COMMIT_AUTHOR", "").strip()
     git_branch = os.environ.get("GIT_BRANCH", "").strip() or "unknown"
@@ -126,7 +135,64 @@ def build_caption(artifact_path: str) -> None:
             subject, summary, commit_author, git_branch, short_sha, action_url, release_header
         )
 
-    print(caption, end="")
+    return caption
+
+
+def send_notification(artifact_path: str, release_asset_url: str) -> None:
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if not token or not chat_id:
+        print("Missing Telegram secrets; skipping notification.", file=sys.stderr)
+        return
+
+    caption = build_caption(artifact_path)
+    artifact = Path(artifact_path)
+    size = artifact.stat().st_size
+    fields = {"chat_id": chat_id, "parse_mode": "HTML"}
+    if size > MAX_DOCUMENT_BYTES:
+        if not release_asset_url:
+            print("Missing release asset URL for oversized module.", file=sys.stderr)
+            sys.exit(1)
+        method = "sendMessage"
+        fields["text"] = (
+            f"{caption}\n\n"
+            f"安装包大小：{size / (1024 * 1024):.2f} MiB，"
+            "超过 Telegram Bot 的 50 MB 上传限制，改为提供 Release 下载链接。\n"
+            f'<a href="{_escape_html(release_asset_url)}">'
+            f"{_escape_html(artifact.name)}</a>"
+        )
+    else:
+        method = "sendDocument"
+        fields["caption"] = caption
+
+    with tempfile.TemporaryDirectory() as directory:
+        response_file = str(Path(directory) / "response.json")
+        command = [
+            "curl",
+            "--silent",
+            "--show-error",
+            "--output", response_file,
+            "--write-out", "%{http_code}",
+            "-X", "POST",
+            f"https://api.telegram.org/bot{token}/{method}",
+        ]
+        for name, value in fields.items():
+            command.extend(["--form-string", f"{name}={value}"])
+        if method == "sendDocument":
+            command.extend(["--form", f"document=@{artifact_path}"])
+
+        response = subprocess.run(command, capture_output=True, text=True)
+        if response.returncode:
+            print(
+                f"Telegram request failed (curl exit {response.returncode}).",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if response.stdout != "200":
+            print(f"Telegram API returned HTTP {response.stdout}.", file=sys.stderr)
+            print(Path(response_file).read_text(encoding="utf-8"), file=sys.stderr)
+            sys.exit(1)
+        validate_response(response_file)
 
 
 def validate_response(response_file: str) -> None:
@@ -166,6 +232,12 @@ def main() -> None:
         "--artifact-path", required=True, help="Path to the module zip artifact"
     )
 
+    send_parser = subparsers.add_parser(
+        "send", help="Upload the module or send its release download link"
+    )
+    send_parser.add_argument("--artifact-path", required=True)
+    send_parser.add_argument("--release-asset-url", default="")
+
     validate_parser = subparsers.add_parser(
         "validate-response", help="Validate Telegram API response"
     )
@@ -176,7 +248,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "build-caption":
-        build_caption(args.artifact_path)
+        print(build_caption(args.artifact_path), end="")
+    elif args.command == "send":
+        send_notification(args.artifact_path, args.release_asset_url)
     elif args.command == "validate-response":
         validate_response(args.response_file)
 
