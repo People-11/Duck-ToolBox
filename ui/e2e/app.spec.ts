@@ -48,9 +48,7 @@ test("preserves MediaTek identifier defaults, dry run and confirmed live write",
   await expect(dialog).toBeVisible()
   await dialog.getByRole("button", { name: "Provision device IDs" }).click()
   await expect(page.getByText("Object existence only", { exact: true })).toBeVisible()
-  await expect(
-    page.getByText("/data/adb/modules/duck-toolbox/kph_patched", { exact: true }),
-  ).toBeVisible()
+  await expect(page.getByText("/vendor/lib64/libkphproxy.so", { exact: true })).toBeVisible()
 })
 
 test("asks again before sending a request to the KeyMint TA", async ({ page, open }) => {

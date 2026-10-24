@@ -1,6 +1,6 @@
 //! Backend-specific requests shared by dry runs, execution and reporting.
 use anyhow::Result;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 
 use crate::{Backend, DeviceIdsError, DeviceIdsProfile, ProvisionedId, command, spec};
@@ -17,11 +17,11 @@ pub(crate) enum Request {
     },
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct DataItem {
-    pub uuid: &'static str,
-    pub tag: &'static str,
-    #[serde(serialize_with = "hex_bytes")]
+    pub uuid: String,
+    pub tag: String,
+    #[serde(serialize_with = "hex_bytes", deserialize_with = "unhex_bytes")]
     pub payload: Vec<u8>,
     pub permission: u32,
     pub flags: u32,
@@ -145,8 +145,8 @@ fn item(uuid: &'static str, tag: &'static str, payload: String) -> DataItem {
     let mut payload = payload.into_bytes();
     payload.push(0);
     DataItem {
-        uuid,
-        tag,
+        uuid: uuid.into(),
+        tag: tag.into(),
         payload,
         permission: 42,
         flags: 0,
@@ -165,4 +165,9 @@ fn validate_value(label: &str, value: &str) -> Result<()> {
 
 fn hex_bytes<S: Serializer>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&hex::encode(bytes))
+}
+
+fn unhex_bytes<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
+    let value = String::deserialize(deserializer)?;
+    hex::decode(value).map_err(serde::de::Error::custom)
 }

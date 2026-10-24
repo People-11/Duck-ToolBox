@@ -1,4 +1,7 @@
-use std::io::{self, Read};
+use std::{
+    io::{self, Read},
+    path::PathBuf,
+};
 
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
@@ -13,7 +16,7 @@ pub static FEATURE: ClapFeature<Command> = ClapFeature::new(
     FeatureInfo {
         id: "device-ids",
         summary: "Attestation device ID provisioning (Qualcomm / MediaTek TrustKernel)",
-        contract: 2,
+        contract: 3,
     },
     dispatch,
 );
@@ -28,6 +31,12 @@ pub enum Command {
     Defaults,
     /// Provision device IDs into the Keymaster trusted app (profile JSON on stdin).
     Provision(ProvisionArgs),
+    /// Private boundary for vendor code; requests and replies stay in the exchange directory.
+    #[command(hide = true)]
+    KphCall {
+        #[arg(long)]
+        exchange: PathBuf,
+    },
 }
 
 #[derive(Debug, Args, Clone)]
@@ -38,6 +47,8 @@ pub struct ProvisionArgs {
 
 pub fn run(command: Command, ctx: &RunContext) -> CommandResult {
     match command {
+        Command::KphCall { exchange } => crate::trustkernel_worker::execute(&exchange)
+            .into_command("device-ids.kph-call", code_of),
         Command::Defaults => {
             anyhow::Ok(defaults::detect(&duck_platform::props::all(), &ctx.sysroot))
                 .into_command("device-ids.defaults", code_of)

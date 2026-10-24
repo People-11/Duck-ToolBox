@@ -13,7 +13,6 @@ mod cli;
 mod command;
 mod defaults;
 mod error;
-mod kph_artifact;
 mod kph_process;
 mod plan;
 #[cfg(test)]
@@ -22,25 +21,19 @@ mod plan_tests;
 mod qseecom;
 mod report;
 mod spec;
-#[allow(unsafe_code)]
 mod trustkernel;
+#[allow(unsafe_code)]
+mod trustkernel_native;
+#[cfg(test)]
+mod trustkernel_native_tests;
 #[cfg(test)]
 mod trustkernel_tests;
+mod trustkernel_worker;
 
 pub use backend::Backend;
 pub use cli::{Command, FEATURE, run};
 pub use defaults::Defaults;
 pub use error::DeviceIdsError;
-
-/// Metadata gathered while talking to the TA, surfaced in the provisioning report.
-/// Shared by both the Qualcomm (QSEECom) and MediaTek (TrustKernel) backends.
-#[derive(Debug, Default, Clone)]
-pub(crate) struct SessionInfo {
-    pub(crate) loaded_library: Option<String>,
-    pub(crate) ta_api_version: Option<String>,
-    pub(crate) ta_version: Option<String>,
-    pub(crate) response_hex: Option<String>,
-}
 
 const DEFAULT_TA_NAME: &str = "keymaster64";
 const DEFAULT_TA_PATH: &str = "/vendor/firmware_mnt/image";
@@ -139,20 +132,32 @@ pub fn detect_defaults() -> DeviceIdsProfile {
     defaults::detect(&props::all(), &duck_core::Sysroot::from_env()).profile
 }
 
-pub fn provision(paths: &AppPaths, profile: DeviceIdsProfile) -> Result<DeviceIdsProvisionResult> {
-    let resolved = merge_missing_from_system(profile);
-    let ids = spec::collect_ids(&resolved)?;
-
-    // The CBOR command is only used by the Qualcomm path; TrustKernel builds
-    // ASCII payloads internally. An empty vec is passed for the report when
-    // the MediaTek path is taken.
-    let mediatek = is_mediatek_device();
-    let command = if mediatek { Vec::new() } else { command::build(&ids)? };
-
-    let mut session_info = SessionInfo::default();
-    if !resolved.dry_run {
-        if !cfg!(target_os = "android") {
-            bail!("device ID provisioning is only supported when Duck ToolBox runs on Android");
+pub fn provision(
+    ctx: &duck_core::Context,
+    profile: DeviceIdsProfile,
+) -> Result<DeviceIdsProvisionResult, duck_core::Failure> {
+    let properties = props::all();
+    let backend = backend::select(&properties, &ctx.sysroot)?;
+    let detected = defaults::profile(&properties, Some(backend));
+    let resolved = merge_missing(profile, detected);
+    let plan = plan::Plan::build(&resolved, backend, &properties)?;
+    let report = report::Report::new(&ctx.paths)?;
+    let mut session = backend::SessionInfo::default();
+    report.write(&resolved, &plan, &session, "prepared", None)?;
+    let execution = if resolved.dry_run {
+        Ok(())
+    } else if !cfg!(target_os = "android") {
+        Err(DeviceIdsError::Unsupported("live writes require Android").into())
+    } else {
+        match &plan.request {
+            plan::Request::Qseecom { command } => {
+                qseecom::provision(&resolved.ta_path, &resolved.ta_name, command).map(|info| {
+                    session = info;
+                })
+            }
+            plan::Request::Trustkernel { items } => {
+                trustkernel::provision(ctx, items, &mut session)
+            }
         }
     };
     let status = if execution.is_err() {

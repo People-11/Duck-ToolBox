@@ -46,7 +46,8 @@ describe("device ID backend result contracts", () => {
     { verification: "ta_acknowledgement" },
     { ta_name: "keymaster" },
     { count: 99 },
-    { executable: null },
+    { executable: "/vendor/bin/kph" },
+    { loaded_library: null },
   ])("rejects an inconsistent TrustKernel success report %j", async (invalid) => {
     const { profile, data } = response("mediatek", false)
     Object.assign(data, invalid)

@@ -27,7 +27,6 @@ pub(crate) fn select(properties: &BTreeMap<String, String>, root: &Sysroot) -> R
 pub(crate) struct SessionInfo {
     pub loaded_library: Option<String>,
     pub executable: Option<String>,
-    pub executable_sha256: Option<String>,
     pub ta_api_version: Option<String>,
     pub ta_version: Option<String>,
     pub response_hex: Option<String>,

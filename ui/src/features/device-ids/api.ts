@@ -46,11 +46,14 @@ const resultSchema = z
   .refine(
     (data) =>
       data.backend === "trustkernel"
-        ? data.loaded_library === null &&
+        ? data.executable === null &&
           data.ta_name === null &&
           data.ta_path === null &&
           data.ta_api_version === null &&
-          (data.dry_run || (data.executable !== null && data.verification === "existence_only"))
+          (data.dry_run
+            ? data.loaded_library === null
+            : data.loaded_library?.endsWith("/libkphproxy.so") === true &&
+              data.verification === "existence_only")
         : data.executable === null &&
           data.ta_name !== null &&
           data.ta_path !== null &&

@@ -100,8 +100,8 @@ const resultRows = computed(() => {
       value: [data.ta_api_version, data.ta_version].filter(Boolean).join(" / ") || none,
     },
     {
-      label: data.backend === "trustkernel" ? "KPH" : t("result.library"),
-      value: data.loaded_library ?? data.executable ?? none,
+      label: t("result.library"),
+      value: data.loaded_library ?? none,
       mono: true,
     },
     { label: t("result.report"), value: data.report_path, mono: true, copy: true },

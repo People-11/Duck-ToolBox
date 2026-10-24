@@ -117,11 +117,11 @@ changed, removed or added on its own.
     does not prove server acceptance.
 - **Device ID Provisioner**: retains Qualcomm Keymaster provisioning through
   `libQSEEComAPI.so` and supports experimental MediaTek TrustKernel provisioning through
-  KPH. Both paths auto-fill identifiers and support dry runs. TrustKernel prepares and
-  writes `rkp_flag` and `attestation_ids`, with private request files, bounded subprocesses,
-  executable hash validation and partial-write reports. Its existence check does not
+  the device's `libkphproxy.so`. Both paths auto-fill identifiers and support dry runs.
+  TrustKernel prepares and writes `rkp_flag` and `attestation_ids`, with private request
+  files, isolated vendor calls, timeouts and partial-write reports. Its existence check does not
   verify payload equality; MEID entries are explicitly reported as omitted on this path.
-  See [backend contracts, binary provenance and compatibility limits](docs/trustkernel-provisioning.md).
+  See [backend contracts, ABI evidence and compatibility limits](docs/trustkernel-provisioning.md).
 - **Module & updates**: version and device summary, stable and canary updates with
   changelog, output files, command history, uninstall and reboot.
 

@@ -1,6 +1,5 @@
 use super::*;
 use crate::{
-    kph_artifact,
     kph_process::{self, Runner},
     plan::{Plan, Request},
 };
@@ -20,23 +19,24 @@ fn runner(
     let source = format!(
         r#"#!/usr/bin/env python3
 import sys, pathlib, json, uuid
-args = sys.argv[1:]
-with open({log}, 'a') as log:
-    entry = {{'args': args}}
-    if args[1] == 'import_data':
-        path = pathlib.Path(args[args.index('-i')+1])
-        entry['hex'] = path.read_bytes().hex()
-        entry['mode'] = path.stat().st_mode & 0o777
-        assert args[args.index('-p')+1] == '42'
-        assert args[args.index('-f')+1] == '0'
-        value = args[args.index('-u')+1]
-        assert str(uuid.UUID(value)) == value
-    log.write(json.dumps(entry)+'\n')
-if args[1] == 'ta_version': print('KPH TA VERSION=3.0')
-elif args[1] == 'import_data' and args[args.index('-g')+1] == {fail_tag}:
-    print('TEEC 0xffff0005: private diagnostic', file=sys.stderr)
-    sys.exit(7)
-elif args[1] == 'verify_data' and {fail_verify}: sys.exit(8)
+path = pathlib.Path(sys.argv[sys.argv.index('--exchange')+1])
+request = json.loads((path/'request.json').read_text())
+call = request['call']
+entry = {{'operation': call['operation'], 'mode': (path/'request.json').stat().st_mode & 0o777}}
+status = 0
+version = None
+if call['operation'] == 'version': version = '3.0'
+elif call['operation'] == 'import':
+    item = call['item']
+    entry['hex'] = item['payload']
+    assert item['permission'] == 42 and item['flags'] == 0
+    assert str(uuid.UUID(item['uuid'])) == item['uuid']
+    if item['tag'] == {fail_tag}:
+        print('TEEC 0xffff0005: private diagnostic', file=sys.stderr)
+        status = -65531
+elif call['operation'] == 'verify' and {fail_verify}: status = 8
+with open({log}, 'a') as log: log.write(json.dumps(entry)+'\n')
+(path/'reply.json').write_text(json.dumps({{'result': 'returned', 'library': request['library'], 'status': status, 'version': version}}))
 "#,
         log = serde_json::to_string(&log.display().to_string()).unwrap(),
         fail_tag = serde_json::to_string(fail_tag).unwrap(),
@@ -69,7 +69,13 @@ fn process_pipeline_sends_both_requests_then_verifies_existence_and_cleans_up() 
         panic!()
     };
     let mut session = backend::SessionInfo::default();
-    trustkernel::execute(&runner, items, &mut session).unwrap();
+    trustkernel::execute(
+        &runner,
+        std::path::Path::new("/vendor/lib64/libkphproxy.so"),
+        items,
+        &mut session,
+    )
+    .unwrap();
     assert_eq!(session.ta_version.as_deref(), Some("3.0"));
     assert!(
         session
@@ -85,15 +91,9 @@ fn process_pipeline_sends_both_requests_then_verifies_existence_and_cleans_up() 
     assert_eq!(
         calls
             .iter()
-            .map(|c| c["args"][1].as_str().unwrap())
+            .map(|c| c["operation"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        [
-            "ta_version",
-            "import_data",
-            "import_data",
-            "verify_data",
-            "verify_data"
-        ]
+        ["version", "import", "import", "verify", "verify"]
     );
     for (call, item) in calls[1..3].iter().zip(items) {
         assert_eq!(call["hex"], hex::encode(&item.payload));
@@ -121,7 +121,13 @@ fn partial_writes_and_verification_failure_are_not_reported_as_success() {
             panic!()
         };
         let mut session = backend::SessionInfo::default();
-        let error = trustkernel::execute(&runner, items, &mut session).unwrap_err();
+        let error = trustkernel::execute(
+            &runner,
+            std::path::Path::new("/vendor/lib64/libkphproxy.so"),
+            items,
+            &mut session,
+        )
+        .unwrap_err();
         assert_eq!(error::code_of(&error), "trustkernel_operation_failed");
         assert_eq!(
             session
@@ -171,39 +177,95 @@ fn hung_and_missing_processes_release_their_workspace() {
 }
 
 #[test]
-fn hash_pinning_snapshot_and_file_lock_protect_execution_inputs() {
+fn file_lock_serializes_operations_and_rejects_symlinks() {
     let root = tempfile::tempdir().unwrap();
-    let ctx = duck_core::Context {
-        paths: duck_core::AppPaths::for_root(root.path(), root.path()),
-        sysroot: duck_core::Sysroot::new(root.path()),
-    };
-    let source = ctx.paths.root.join("kph_patched");
-    let bytes = include_bytes!("../../../module/kph_patched");
-    fs::write(&source, bytes).unwrap();
-    let vendor = ctx.sysroot.path("/vendor/bin/kph");
-    fs::create_dir_all(vendor.parent().unwrap()).unwrap();
-    fs::write(&vendor, bytes).unwrap();
-    fs::set_permissions(&vendor, fs::Permissions::from_mode(0o700)).unwrap();
-    let executable = kph_artifact::select(&ctx).unwrap();
-    let directory = kph_process::directory(&ctx.paths.tmp_dir).unwrap();
-    let snapshot = kph_artifact::snapshot(&executable, directory.path()).unwrap();
-    fs::write(&source, b"replaced").unwrap();
-    assert_eq!(fs::read(snapshot).unwrap(), bytes);
-    assert!(kph_artifact::select(&ctx).is_err());
-    fs::remove_file(&source).unwrap();
-    let target = root.path().join("elsewhere");
-    fs::write(&target, bytes).unwrap();
-    symlink(target, &source).unwrap();
-    assert!(kph_artifact::select(&ctx).is_err());
-    fs::remove_file(&source).unwrap();
-    assert_eq!(kph_artifact::select(&ctx).unwrap().source, vendor);
-    fs::set_permissions(&vendor, fs::Permissions::from_mode(0o666)).unwrap();
-    assert!(kph_artifact::select(&ctx).is_err());
-    let lock = kph_process::lock(&ctx.paths.var_dir).unwrap();
+    let lock = kph_process::lock(root.path()).unwrap();
     assert_eq!(
-        error::code_of(&kph_process::lock(&ctx.paths.var_dir).err().unwrap()),
+        error::code_of(&kph_process::lock(root.path()).err().unwrap()),
         "provisioning_busy"
     );
     drop(lock);
-    assert!(kph_process::lock(&ctx.paths.var_dir).is_ok());
+    assert!(kph_process::lock(root.path()).is_ok());
+    fs::remove_file(root.path().join("device-ids.lock")).unwrap();
+    symlink(
+        root.path().join("elsewhere"),
+        root.path().join("device-ids.lock"),
+    )
+    .unwrap();
+    assert!(kph_process::lock(root.path()).is_err());
+}
+
+#[test]
+fn exchange_files_are_bounded_and_cannot_be_symlinks() {
+    let root = tempfile::tempdir().unwrap();
+    let source = root.path().join("source");
+    fs::write(&source, b"12345").unwrap();
+    assert!(trustkernel_worker::read(&source, 4).is_err());
+    assert_eq!(trustkernel_worker::read(&source, 5).unwrap(), b"12345");
+    let link = root.path().join("link");
+    symlink(source, &link).unwrap();
+    assert!(trustkernel_worker::read(&link, 5).is_err());
+    assert!(trustkernel_worker::read(root.path(), 5).is_err());
+}
+
+#[test]
+fn missing_reply_does_not_reuse_a_previous_success() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut runner, _) = runner(root.path(), "", false);
+    let request = trustkernel_worker::Request {
+        library: "/vendor/lib64/libkphproxy.so".into(),
+        call: trustkernel_worker::Call::Version,
+    };
+    let mut session = backend::SessionInfo::default();
+    trustkernel_worker::invoke(&runner, &request, &mut session, "version", None).unwrap();
+    let executable = root.path().join("empty.sh");
+    fs::write(&executable, "#!/bin/sh\nexit 0\n").unwrap();
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+    runner.executable = executable;
+    let error =
+        trustkernel_worker::invoke(&runner, &request, &mut session, "version", None).unwrap_err();
+    assert_eq!(error::code_of(&error), "trustkernel_transport_failed");
+}
+
+#[test]
+fn crashed_or_invalid_workers_preserve_attempted_write_state() {
+    for behavior in ["crash", "malformed", "wrong_library", "oversize"] {
+        let root = tempfile::tempdir().unwrap();
+        let (runner, _) = runner(root.path(), "", false);
+        let source = fs::read_to_string(&runner.executable).unwrap();
+        let fault = match behavior {
+            "crash" => "sys.exit(139)",
+            "malformed" => "(path/'reply.json').write_text('invalid'); sys.exit(0)",
+            "oversize" => "(path/'reply.json').write_text('x'*17000); sys.exit(0)",
+            _ => "request['library'] = '/different/libkphproxy.so'",
+        };
+        fs::write(&runner.executable, source.replace("call = request['call']",
+            &format!("call = request['call']\nif call['operation'] == 'import' and call['item']['tag'] == 'attestation_ids':\n    {fault}"))).unwrap();
+        let plan = Plan::build(
+            &plan_tests::profile(),
+            Backend::Trustkernel,
+            &plan_tests::properties(),
+        )
+        .unwrap();
+        let Request::Trustkernel { items } = &plan.request else {
+            panic!()
+        };
+        let mut session = backend::SessionInfo::default();
+        let error = trustkernel::execute(
+            &runner,
+            std::path::Path::new("/vendor/lib64/libkphproxy.so"),
+            items,
+            &mut session,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error::code_of(&error),
+            "trustkernel_transport_failed",
+            "{behavior}"
+        );
+        assert_eq!(session.writes.len(), 2);
+        assert!(session.writes[0].import_succeeded);
+        assert!(!session.writes[1].import_succeeded);
+        assert!(session.writes.iter().all(|write| write.exists.is_none()));
+    }
 }

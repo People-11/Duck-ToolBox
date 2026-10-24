@@ -96,7 +96,17 @@ pub(crate) fn directory(parent: &Path) -> Result<tempfile::TempDir> {
         .tempdir_in(parent)?)
 }
 
-pub(crate) fn lock(parent: &Path) -> Result<File> {
+pub(crate) struct Lock(File);
+
+impl Drop for Lock {
+    fn drop(&mut self) {
+        // Release explicitly: concurrent process creation can briefly inherit the
+        // open file description before close-on-exec closes its descriptor.
+        let _ = self.0.unlock();
+    }
+}
+
+pub(crate) fn lock(parent: &Path) -> Result<Lock> {
     fs::create_dir_all(parent)?;
     let file = File::options()
         .read(true)
@@ -113,5 +123,5 @@ pub(crate) fn lock(parent: &Path) -> Result<File> {
             return Err(error).context("lock device ID provisioning");
         }
     }
-    Ok(file)
+    Ok(Lock(file))
 }

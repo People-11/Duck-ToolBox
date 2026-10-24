@@ -1,6 +1,6 @@
 # Device ID provisioning backends
 
-The `device-ids` feature uses contract 2. `defaults` returns the existing profile fields
+The `device-ids` feature uses contract 3. `defaults` returns the existing profile fields
 plus the detected `backend`. `provision --stdin-json` accepts the same profile input.
 Qualcomm QSEECom and MediaTek TrustKernel use the shared property/kernel SoC detector;
 conflicting evidence is rejected. Unknown vendor information retains the historical
@@ -29,40 +29,42 @@ the known ASCII payload contract: they remain supported by QSEECom, and appear i
 `omitted_ids` rather than the written ID count for TrustKernel. Control characters,
 ambiguous `=` tokens and field values exceeding 1024 bytes are rejected.
 
-Each payload file contains a trailing NUL byte. The reviewed executable reads the file's
-actual length; `-p` is a permission/context argument, not a substitute for that byte.
-The invocation uses `-p 42 -f 0`. Its named-data trampoline clears 128 context bytes and
-stores 42 in the first u32. Dry runs serialize the same prepared requests used by live
-execution, including the exact payload bytes, target UUIDs and arguments.
+Each payload contains a trailing NUL byte. Dry runs serialize the same prepared
+requests used by live execution, including exact payload bytes and target UUIDs.
+The adapter calls `kph_import_ta_data_by_uuid(uuid, tag, context, context_len,
+payload, payload_len, storage)`: a seven-argument ABI. The context is 128 zeroed
+bytes with permission 42 stored in the first little-endian u32; storage is 0.
+Payload length includes the trailing NUL.
 
-Both targets are imported before their existence is checked. A successful `verify_data`
-call cannot establish that the stored bytes match the request. Successful results say
-`verification=existence_only`, identify the executable separately from a loaded library,
-and leave QSEECom TA/library metadata null. No payload equality claim is made.
+Both targets are imported before `kph_verify_data_by_uuid(uuid, tag)` checks their
+existence. Successful results say `verification=existence_only` and identify the actual
+`loaded_library`; `executable`, `ta_name`, `ta_path` and `ta_api_version` are null.
+Dry runs also leave `loaded_library` null. Contract 3 replaces contract 2's external
+executable metadata with runtime library metadata. Existence does not prove that the
+stored bytes equal the request.
 
-## Executable and process ownership
+## Library and process ownership
 
-The adapter searches the current module root's `kph_patched`, the conventional
-`/data/local/tmp/kph_patched`, then stock `/vendor/bin/kph` or `/system/bin/kph`.
-Patched candidates must match the reviewed SHA-256 and ELF ABI in `kph-metadata.json`.
-A present but invalid patched candidate is an error, not a reason to run a different
-executable silently. Stock candidates must be regular executable files, root-owned
-on Android and not writable by group/others. Reads reject symlinks and nonregular files.
+No KPH executable is bundled or executed; vendor libraries come from the device. Live writes require
+Android arm64, `/dev/tkcoredrv` and the device's `libkphproxy.so`, searched under
+`/vendor/lib64`, `/odm/lib64`, their `hw` subdirectories, then `/system/lib64`.
+Its dependent libraries must also be available to the Android loader. Missing required
+UUID import or verification exports fail before the first import; legacy numeric-ID
+exports are never substituted. `kph_ta_version(buffer, 32)` is optional.
 
-The selected bytes are copied into a fresh private directory before execution, so a
-later replacement of a staging file cannot change the executed snapshot. The snapshot
-digest and source path are recorded in the report. The installer and shared packager
-also set executable permissions on the bundled sample; packaging checks its hash, size,
-ELF ABI and notice.
+The parent starts the same installed backend as a disposable worker for each vendor
+call. Only the worker loads vendor code and receives the vendor library search path.
+A file lock serializes TrustKernel operations. Request directories are mode 0700;
+request and reply files are mode 0600, size bounded, and read without following
+symlinks. A previous reply is removed before each invocation. A vendor crash or a
+missing/malformed reply cannot count as a successful import.
 
-Live writes require `/dev/tkcoredrv`, `libkphproxy.so` and `libkphhelper.so`. Only the child
-receives the vendor library search path. A file lock serializes TrustKernel operations.
-Request directories are mode 0700 and payload files 0600. Every KPH invocation has a
-30-second timeout and child ownership that kills/reaps on normal error/timeout unwinding.
-Vendor stdout/stderr cannot enter the command's JSON stream or public logs. Diagnostics
-are bounded to 8192 bytes per stream/invocation and retained in the private report so TA
-error codes remain available; only the parsed TA version enters successful API metadata.
-Temporary files are removed on success and error.
+Every worker has a 30-second timeout and ownership that kills/reaps it on normal
+error/timeout unwinding. Vendor stdout/stderr cannot enter the command's JSON stream
+or public logs. Diagnostics are bounded to 8192 bytes per stream/invocation and retained
+in the private report. Temporary files are removed on success and error. Process
+isolation contains crashes and hangs; the worker still needs root privileges for the
+device driver and is not a security sandbox.
 
 ## Failures and reports
 
@@ -78,17 +80,17 @@ execution is returned with the same write details rather than triggering another
 
 ## Evidence and limits
 
-The bundled sample is byte-for-byte identical to the original PR #35 binary, SHA-256
-`a8112084eccbf91f55368aca69c4cb656ed0a88859b0bdc66fcd8845dcc9f507`. An identical published
-copy, build identifiers and observed patch are recorded in `module/kph-metadata.json`.
-The trampoline is in undeclared RX page padding at file offset `0x48a0`, so its runtime
-mapping depends on the loader/page configuration. The stock KPH fallback can fail on
-firmware needing the patched context initialization.
+The UUID import/verification signatures, 128-byte context initialization and TA version
+call are based on the original PR #35 KPH sample, SHA-256
+`a8112084eccbf91f55368aca69c4cb656ed0a88859b0bdc66fcd8845dcc9f507`, inspected with
+Ghidra. The original sample and its patch are no longer distributed. This observation
+does not establish ABI compatibility with every `libkphproxy.so` version. In particular,
+`kph_import_ta_data` and `kph_verify_ta_data2` use a different addressing contract and
+must not be called with UUID pointers under guessed signatures.
 
-The original firmware sample, reproducible patch procedure, vendor library behavior and
-redistribution license remain unverified; see `module/licenses/kph-NOTICE.txt`. Hash
-validation pins these bytes and does not establish safety or firmware compatibility.
-Host tests cover command bytes, process lifecycle, both-target sequencing, partial
-failures, report privacy and API/UI contracts. Successful provisioning and attestation
-on real MediaTek hardware still require device validation. This backend writes device
-IDs; device RKP issuance remains a separate V1 AIDL feature on MediaTek.
+Host tests use a synthetic C shared library to verify argument order, buffer lengths,
+context initialization, target selection and raw return status, without loading vendor
+code. Process tests cover sequencing, partial failure, stale replies, timeout, privacy
+and cleanup. Successful provisioning and attestation on real MediaTek hardware still
+require device validation. This backend writes device IDs; device RKP issuance remains
+a separate V1 AIDL feature on MediaTek.

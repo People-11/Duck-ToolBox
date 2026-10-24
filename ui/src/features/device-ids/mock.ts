@@ -3,7 +3,7 @@ import type { DeviceIdsProfile } from "./api"
 
 const isTrustkernel = () => new URLSearchParams(location.search).get("soc") === "mediatek"
 const mock: MockModule = {
-  feature: { id: "device-ids", contract: 2 },
+  feature: { id: "device-ids", contract: 3 },
   handlers: {
     "device-ids.defaults": () => ({
       backend: isTrustkernel() ? "trustkernel" : "qseecom",
@@ -56,9 +56,12 @@ const mock: MockModule = {
         dry_run: profile.dry_run,
         ta_name: trustkernel ? null : profile.ta_name,
         ta_path: trustkernel ? null : profile.ta_path,
-        loaded_library: profile.dry_run || trustkernel ? null : "/vendor/lib64/libQSEEComAPI.so",
-        executable:
-          profile.dry_run || !trustkernel ? null : "/data/adb/modules/duck-toolbox/kph_patched",
+        loaded_library: profile.dry_run
+          ? null
+          : trustkernel
+            ? "/vendor/lib64/libkphproxy.so"
+            : "/vendor/lib64/libQSEEComAPI.so",
+        executable: null,
         ta_api_version: profile.dry_run || trustkernel ? null : "4.0",
         ta_version: profile.dry_run ? null : trustkernel ? "3.0" : "400",
         report_path: "/data/adb/duck-toolbox/var/outputs/device-ids-20260928.json",
