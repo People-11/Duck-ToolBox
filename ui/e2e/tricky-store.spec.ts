@@ -313,9 +313,18 @@ test.describe("backends", () => {
 
 test("saves prop settings", async ({ page, open }) => {
   await open("/tricky-store/props")
+  await expect(page.getByLabel("Boot Hash")).toHaveValue("")
+  await expect(page.getByLabel("Boot Hash")).toHaveAttribute(
+    "placeholder",
+    "Enter 64 hexadecimal characters",
+  )
   await page.getByLabel("Boot Hash").fill("zz")
   await expect(page.getByText("Enter 64 hexadecimal characters")).toBeVisible()
-  await page.getByLabel("Boot Hash").fill("AB".repeat(32))
+  await page.getByLabel("Boot Hash").fill(`${"AB ".repeat(16)}\n${"AB".repeat(16)}`)
   await page.getByRole("button", { name: "Save" }).click()
   await expect(page.getByText("Verified Boot Hash saved successfully")).toBeVisible()
+  await expect(page.getByLabel("Boot Hash")).toHaveValue("ab".repeat(32))
+  await page.getByLabel("Boot Hash").fill("")
+  await page.getByRole("button", { name: "Save" }).click()
+  await expect(page.getByText("Config saved", { exact: true })).toBeVisible()
 })

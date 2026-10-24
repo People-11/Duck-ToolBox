@@ -199,7 +199,8 @@ const mock: MockModule = {
             ? "scripts-only"
             : "configured"
           : "disabled",
-        data_dir: "/data/adb/play-integrity",
+        data_dir:
+          new URLSearchParams(location.search).get("pif-data-dir") ?? "/data/adb/play-integrity",
         verdict_verified: false,
         app_replace_list: "# ROM conflict paths\n",
       }

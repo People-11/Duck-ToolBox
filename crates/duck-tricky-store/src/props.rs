@@ -4,7 +4,9 @@
 //! `/data/adb/disable_prop_handler`) so both tools share one configuration. Props are
 //! changed with `resetprop -n`, which the KernelSU module guide requires in boot scripts.
 
-use anyhow::Result;
+use std::{io::ErrorKind, path::Path};
+
+use anyhow::{Context as _, Result};
 use duck_core::{Context, Sysroot, fs::write_string_atomic};
 use duck_platform::props;
 use serde::{Deserialize, Serialize};
@@ -41,34 +43,39 @@ pub fn status(sysroot: &Sysroot) -> PropStatus {
 }
 
 pub fn save(ctx: &Context, request: PropRequest) -> Result<PropData> {
+    // Validate the entire request before changing either configuration file.
+    let boot_hash = request
+        .boot_hash
+        .as_deref()
+        .map(str::trim)
+        .filter(|hash| !hash.is_empty())
+        .map(normalize_boot_hash)
+        .transpose()?;
     let sysroot = &ctx.sysroot;
     let disable_path = sysroot.path(DISABLE_PROP_HANDLER_FILE);
     if request.prop_handler_enabled {
-        let _ = std::fs::remove_file(&disable_path);
+        remove_config_file(&disable_path)?;
     } else {
         write_string_atomic(&disable_path, "")?;
     }
 
     let mut applied_boot_hash = false;
     let mut synced_backend_policy = false;
-    let boot_hash = match request.boot_hash.as_deref().map(str::trim) {
-        Some(hash) if !hash.is_empty() => {
-            let hash = normalize_boot_hash(hash)?;
-            write_string_atomic(&sysroot.path(BOOT_HASH_FILE), &hash)?;
+    match &boot_hash {
+        Some(hash) => {
+            write_string_atomic(&sysroot.path(BOOT_HASH_FILE), hash)?;
             // Only touch live properties when managing the running system, not a test sysroot.
             if sysroot.root() == std::path::Path::new("/") {
-                props::reset(VBMETA_DIGEST, &hash)?;
+                props::reset(VBMETA_DIGEST, hash)?;
                 props::rebuild_area(VBMETA_DIGEST);
                 applied_boot_hash = true;
             }
-            synced_backend_policy = sync_backend_vb_hash(sysroot, &hash)?;
-            Some(hash)
+            synced_backend_policy = sync_backend_vb_hash(sysroot, hash)?;
         }
-        _ => {
-            let _ = std::fs::remove_file(sysroot.path(BOOT_HASH_FILE));
-            None
+        None => {
+            remove_config_file(&sysroot.path(BOOT_HASH_FILE))?;
         }
-    };
+    }
 
     Ok(PropData {
         prop_handler_enabled: request.prop_handler_enabled,
@@ -76,6 +83,14 @@ pub fn save(ctx: &Context, request: PropRequest) -> Result<PropData> {
         applied_boot_hash,
         synced_backend_policy,
     })
+}
+
+fn remove_config_file(path: &Path) -> Result<()> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error).with_context(|| format!("remove {}", path.display())),
+    }
 }
 
 fn sync_backend_vb_hash(sysroot: &Sysroot, hash: &str) -> Result<bool> {
@@ -127,9 +142,19 @@ fn normalize_boot_hash(hash: &str) -> Result<String> {
 mod tests {
     use std::fs;
 
-    use duck_core::Sysroot;
+    use duck_core::{AppPaths, Context, Sysroot};
 
-    use super::{DISABLE_PROP_HANDLER_FILE, normalize_boot_hash, read_boot_hash, status};
+    use super::{
+        BOOT_HASH_FILE, DISABLE_PROP_HANDLER_FILE, PropRequest, normalize_boot_hash,
+        read_boot_hash, save, status,
+    };
+
+    fn context(root: &std::path::Path) -> Context {
+        Context {
+            paths: AppPaths::for_root(&root.join("module"), &root.join("runtime")),
+            sysroot: Sysroot::new(root.join("sys")),
+        }
+    }
 
     #[test]
     fn normalizes_and_validates_boot_hash() {
@@ -139,6 +164,10 @@ mod tests {
         );
         assert!(normalize_boot_hash("abc").is_err());
         assert!(normalize_boot_hash(&"z".repeat(64)).is_err());
+        assert_eq!(
+            normalize_boot_hash(&format!("{} \n {}", "AB".repeat(16), "CD".repeat(16))).unwrap(),
+            format!("{}{}", "ab".repeat(16), "cd".repeat(16))
+        );
     }
 
     #[test]
@@ -164,5 +193,83 @@ mod tests {
         fs::write(&path, format!("# note\n{}\n", "CD".repeat(32))).unwrap();
 
         assert_eq!(read_boot_hash(&sysroot), Some("cd".repeat(32)));
+    }
+
+    #[test]
+    fn invalid_hash_does_not_change_the_handler_or_saved_hash() {
+        let root = tempfile::tempdir().unwrap();
+        let ctx = context(root.path());
+        let hash_path = ctx.sysroot.path(BOOT_HASH_FILE);
+        let disable = ctx.sysroot.path(DISABLE_PROP_HANDLER_FILE);
+        fs::create_dir_all(hash_path.parent().unwrap()).unwrap();
+        fs::write(&hash_path, "ab".repeat(32)).unwrap();
+
+        for was_enabled in [true, false] {
+            if !was_enabled {
+                fs::write(&disable, "").unwrap();
+            }
+            assert!(
+                save(
+                    &ctx,
+                    PropRequest {
+                        prop_handler_enabled: !was_enabled,
+                        boot_hash: Some("invalid".into()),
+                    },
+                )
+                .is_err()
+            );
+            assert_eq!(status(&ctx.sysroot).prop_handler_enabled, was_enabled);
+            assert_eq!(fs::read_to_string(&hash_path).unwrap(), "ab".repeat(32));
+        }
+    }
+
+    #[test]
+    fn saves_formatted_hash_independently_of_the_handler_and_clears_it() {
+        let root = tempfile::tempdir().unwrap();
+        let ctx = context(root.path());
+        let result = save(
+            &ctx,
+            PropRequest {
+                prop_handler_enabled: false,
+                boot_hash: Some(format!("{} \n {}", "AB".repeat(16), "AB".repeat(16))),
+            },
+        )
+        .unwrap();
+        assert!(!result.prop_handler_enabled);
+        assert!(!result.applied_boot_hash);
+        assert_eq!(read_boot_hash(&ctx.sysroot), Some("ab".repeat(32)));
+
+        let result = save(
+            &ctx,
+            PropRequest {
+                prop_handler_enabled: true,
+                boot_hash: Some(" \n ".into()),
+            },
+        )
+        .unwrap();
+        assert!(result.prop_handler_enabled);
+        assert!(result.boot_hash.is_none());
+        assert!(!ctx.sysroot.path(BOOT_HASH_FILE).exists());
+        assert!(!ctx.sysroot.path(DISABLE_PROP_HANDLER_FILE).exists());
+    }
+
+    #[test]
+    fn failed_config_removal_is_reported() {
+        for file in [DISABLE_PROP_HANDLER_FILE, BOOT_HASH_FILE] {
+            let root = tempfile::tempdir().unwrap();
+            let ctx = context(root.path());
+            let path = ctx.sysroot.path(file);
+            fs::create_dir_all(&path).unwrap();
+            let error = save(
+                &ctx,
+                PropRequest {
+                    prop_handler_enabled: true,
+                    boot_hash: None,
+                },
+            )
+            .unwrap_err();
+            assert!(error.to_string().contains(&path.display().to_string()));
+            assert!(path.is_dir());
+        }
     }
 }

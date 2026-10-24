@@ -85,7 +85,7 @@ repair_runtime() {
 normalize_boot_hash() {
   file="/data/adb/boot_hash"
   [ -f "$file" ] || return 0
-  hash_value="$(grep -v '^#' "$file" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+  hash_value="$(grep -v '^[[:space:]]*#' "$file" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
   if [ -n "$hash_value" ]; then
     printf '%s\n' "$hash_value" >"$file"
   else

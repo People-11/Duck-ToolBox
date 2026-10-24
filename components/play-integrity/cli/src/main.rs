@@ -115,7 +115,7 @@ impl Engine {
 async fn main() {
     let cli = Cli::parse();
     if matches!(cli.command, Command::Active) {
-        let active = Engine::discover().and_then(|engine| operations::owns_properties(&engine));
+        let active = Engine::discover().and_then(|engine| operations::active(&engine));
         std::process::exit(if active.unwrap_or(false) { 0 } else { 1 });
     }
     if let Command::Fetch { args } = cli.command {

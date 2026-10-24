@@ -11,7 +11,9 @@ pif_running || return 0
 # Magisk Recovery Mode
 resetprop_if_match ro.boot.mode recovery unknown
 resetprop_if_match ro.bootmode recovery unknown
+resetprop_if_match ro.boot.bootmode recovery unknown
 resetprop_if_match vendor.boot.mode recovery unknown
+resetprop_if_match vendor.boot.bootmode recovery unknown
 
 # SELinux
 resetprop_if_diff ro.boot.selinux enforcing
@@ -38,6 +40,13 @@ resetprop_if_diff vendor.boot.vbmeta.device_state locked
 
 # Other
 resetprop_if_diff sys.oem_unlock_allowed 0
+
+# Preserve the toolbox handler's AVB defaults after the OEM-sensitive late updates.
+resetprop_if_empty ro.boot.vbmeta.device_state locked
+resetprop_if_empty ro.boot.vbmeta.invalidate_on_error yes
+resetprop_if_empty ro.boot.vbmeta.avb_version 1.0
+resetprop_if_empty ro.boot.vbmeta.hash_alg sha256
+resetprop_if_empty ro.boot.vbmeta.size 4096
 
 # Compact property area to hide modifications on supported root solutions
 pif_running && resetprop --compact >/dev/null 2>&1 || true

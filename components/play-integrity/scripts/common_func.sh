@@ -91,6 +91,13 @@ resetprop_if_diff() {
     [ -z "$CURRENT" ] || [ "$CURRENT" = "$EXPECTED" ] || $RESETPROP "$NAME" "$EXPECTED"
 }
 
+# resetprop_if_empty <prop name> <expected value>
+resetprop_if_empty() {
+    pif_running || return 0
+    # The legacy hexpatch path can only edit an existing property.
+    [ -n "$(resetprop "$1")" ] || resetprop -n "$1" "$2"
+}
+
 # resetprop_if_match <prop name> <value match string> <new value>
 resetprop_if_match() {
     pif_running || return 0

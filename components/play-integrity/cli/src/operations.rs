@@ -133,12 +133,6 @@ fn compatibility(engine: &Engine) -> Result<Value> {
         json!({"replacement_hash":files::hash(replacement_list(engine)?.as_bytes()),"prop_handler_enabled":!engine.device("/data/adb/disable_prop_handler").exists()}),
     )
 }
-pub fn owns_properties(engine: &Engine) -> Result<bool> {
-    if crate::power::disabled(engine) {
-        return Ok(false);
-    }
-    Ok(options(engine)?["enabled"] == true && conflicts(engine).is_empty())
-}
 pub fn active(engine: &Engine) -> Result<bool> {
     if crate::power::disabled(engine) {
         return Ok(false);
@@ -414,7 +408,6 @@ mod tests {
         fs::write(e.module.join("scripts/stage.sh"), "printf '%s' \"$1\"\n").unwrap();
         assert_eq!(stage(&e, "early").unwrap()["output"], "cleanup");
         assert!(!active(&e).unwrap());
-        assert!(owns_properties(&e).unwrap());
         assert_eq!(stage(&e, "setup").unwrap()["skipped"], true);
         assert_eq!(stage(&e, "late").unwrap()["skipped"], true);
         let mut input = json!({"content":"MODEL=A","format":"prop"});
@@ -426,7 +419,6 @@ mod tests {
         assert!(active(&e).unwrap());
         save_options(&e, &json!({"enabled":false})).unwrap();
         assert!(!active(&e).unwrap());
-        assert!(!owns_properties(&e).unwrap());
         assert!(save_options(&e, &json!({"app_replace_list":"/system/"})).is_err());
     }
     #[test]

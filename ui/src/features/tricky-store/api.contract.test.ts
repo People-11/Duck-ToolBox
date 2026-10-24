@@ -195,6 +195,12 @@ describe.skipIf(!hasDuckd)("Tricky Store API against the real duckd", CONTRACT, 
     expect(props.boot_hash).toBe(hash)
     expect(readFileSync(host.path("/data/adb/boot_hash"), "utf8").trim()).toBe(hash)
     expect(lstatSync(host.path("/data/adb/disable_prop_handler")).isFile()).toBe(true)
+
+    await expect(
+      trickyStoreApi.saveProps({ prop_handler_enabled: true, boot_hash: "invalid" }),
+    ).rejects.toMatchObject({ code: "invalid_policy" })
+    const unchanged = await trickyStoreApi.status()
+    expect(unchanged.props).toEqual({ prop_handler_enabled: false, boot_hash: hash })
   })
 
   it("links and unlinks the entry on the keystore module", async () => {

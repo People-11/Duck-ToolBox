@@ -38,7 +38,7 @@ watch(
   { immediate: true },
 )
 
-const hash = computed(() => bootHash.value.trim().toLowerCase())
+const hash = computed(() => bootHash.value.replace(/\s/g, "").toLowerCase())
 const invalid = computed(() => hash.value !== "" && !/^[0-9a-f]{64}$/.test(hash.value))
 
 const save = useMutation({
@@ -50,8 +50,8 @@ const save = useMutation({
   meta: { errorTitle: () => t("ta.prompt_boot_hash_set_error") },
   onSuccess: (result) => {
     notifySuccess(
-      t("ta.prompt_boot_hash_set"),
-      result.synced_backend_policy ? t("props.synced") : undefined,
+      result.boot_hash ? t("ta.prompt_boot_hash_set") : t("ta.prompt_saved_target"),
+      result.synced_backend_policy ? `${t("props.synced")} ${t("policy.restart")}` : undefined,
     )
     void client.invalidateQueries({ queryKey: STATUS_KEY })
   },
@@ -85,7 +85,7 @@ const save = useMutation({
                 v-model="bootHash"
                 rows="3"
                 class="font-mono text-sm"
-                placeholder="241890bd44131d34c077cb01a0c3ea1ff68533b21e9d83b3f3adca6663c3d443"
+                :placeholder="t('props.invalidHash')"
                 autocapitalize="off"
                 spellcheck="false"
                 :aria-invalid="invalid"
