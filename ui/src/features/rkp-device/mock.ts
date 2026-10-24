@@ -18,7 +18,6 @@ function deviceStatus(): DeviceStatus {
     aidl_apk: "/apex/com.android.rkpd/priv-app/rkpd/rkpdapp.apk",
     qualcomm_soc: true,
     mediatek_soc: false,
-    trustkernel_present: false,
     library_path: "/vendor/lib64/libkeymasterdeviceutils.so",
     device_path: "/dev/smcinvoke",
     fingerprint: "google/husky/husky:15/AP3A.241005.015/1234567:user/release-keys",
@@ -55,6 +54,10 @@ function deviceStatus(): DeviceStatus {
       evidence: [{ source: "/sys/devices/soc0/family", value: "Snapdragon", vendor: "qualcomm" }],
     }
   } else if (scenario === "mediatek") {
+    status.library_present = false
+    status.device_present = false
+    status.v2_available = false
+    status.v1_native_available = false
     status.soc_manufacturer = "MediaTek"
     status.soc_detection = {
       state: "media_tek",
@@ -90,13 +93,18 @@ function deviceStatus(): DeviceStatus {
   }[status.soc_detection.state]
   status.qualcomm_soc = status.soc_detection.state === "qualcomm"
   status.mediatek_soc = status.soc_detection.state === "media_tek"
+  if (!status.qualcomm_soc) {
+    status.v2_available = false
+    status.v1_native_available = false
+  }
   status.blockers = blocker ? [blocker] : []
+  if (!status.v1_available && !status.v2_available) status.blockers.push("v1_unavailable")
   status.prerequisites_met = status.blockers.length === 0
   return status
 }
 
 const mock: MockModule = {
-  feature: { id: "rkp-device", contract: 5 },
+  feature: { id: "rkp-device", contract: 6 },
   handlers: {
     "rkp-device.status": deviceStatus,
     "rkp-device.provision": (_args, flags) => {

@@ -2,7 +2,7 @@
   "meta": {
     "title": "デバイス RKP 発行",
     "description": "このデバイスの KeyMint TA で P-256 鍵に署名し、Google から RKP 証明書チェーンを取得して keybox.xml として書き出します。",
-    "warning": "一部のデバイスでのみ動作し、RKP 証明書のみを発行します。Qualcomm KeyMint の非公開ベンダー ABI を使用し、ABI はファームウェアによって異なる場合があります。互換性がない場合、ワーカープロセスやトラステッドアプリがクラッシュする可能性があります。エクスポートした keybox にはソフトウェアで生成した秘密鍵が含まれるため、ファイルを厳重に管理してください。続行する前に前提条件を確認してください。"
+    "warning": "一部のデバイスでのみ動作し、RKP 証明書のみを発行します。ネイティブ方式では Qualcomm KeyMint の非公開ベンダー ABI を使用し、ABI はファームウェアによって異なる場合があります。互換性がない場合、ワーカープロセスやトラステッドアプリがクラッシュする可能性があります。エクスポートした keybox にはソフトウェアで生成した秘密鍵が含まれるため、ファイルを厳重に管理してください。続行する前に前提条件を確認してください。 MediaTek は V1 AIDL ブリッジのみを使用します。ファームウェアの互換性とサーバーによる受け入れは未検証です。"
   },
   "warning": {
     "title": "続行する前に"
@@ -18,7 +18,7 @@
     "platform": "プラットフォーム",
     "root": "root 権限",
     "vendor": "SoC ベンダー",
-    "vendorOk": "Qualcomm SoC の識別",
+    "vendorOk": "SoC の識別",
     "library": "Keymaster ライブラリ",
     "device": "デバイスノード",
     "fingerprint": "ビルド指紋",
@@ -41,7 +41,7 @@
     "root_required": "KeyMint トラステッドアプリに到達するには root 権限が必要です。",
     "keymint_library_missing": "/vendor/lib64 に libkeymasterdeviceutils.so がありません。",
     "smcinvoke_missing": "/dev/smcinvoke が存在しません。",
-    "qualcomm_soc_required": "Qualcomm 以外の SoC ベンダーを識別しました。この操作には Qualcomm KeyMint が必要です。",
+    "qualcomm_soc_required": "未対応の SoC ベンダーを識別しました。この操作には Qualcomm または MediaTek KeyMint が必要です。",
     "fingerprint_missing": "ビルド指紋がないため、サーバーがチャレンジを結び付けられません。",
     "soc_vendor_unknown": "ローカルのプロパティとカーネル情報から SoC ベンダーを識別できません。",
     "soc_vendor_conflict": "ローカルの SoC 情報が矛盾しています。続行前に識別の根拠を確認してください。",
@@ -80,7 +80,7 @@
   },
   "confirm": {
     "title": "KeyMint TA にリクエストを送信しますか？",
-    "body": "この端末の Qualcomm KeyMint トラステッドアプリで RKP (V1 / V2) を実行し、結果を Google に送信します。対応デバイスは一部だけで、発行できるのは RKP 証明書のみです。エクスポートしたファイルには秘密鍵が含まれるため、厳重に管理してください。続行しますか？"
+    "body": "この端末の KeyMint トラステッドアプリで RKP (V1 / V2) を実行し、結果を Google に送信します。対応デバイスは一部だけで、発行できるのは RKP 証明書のみです。エクスポートしたファイルには秘密鍵が含まれるため、厳重に管理してください。続行しますか？"
   },
   "errors": {
     "acknowledgement_required": "制限事項が確認されていません。",

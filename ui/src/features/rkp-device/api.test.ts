@@ -38,6 +38,16 @@ function respond(data: Provision) {
 }
 
 describe("device RKP successful-response validation", () => {
+  it("accepts MediaTek AIDL and rejects a claimed Qualcomm native capability", async () => {
+    history.replaceState(null, "", "/?soc=mediatek")
+    const data = result()
+    respond(data)
+    await expect(rkpDeviceApi.provision()).resolves.toEqual(data)
+    data.prerequisites.v2_available = true
+    respond(data)
+    await expect(rkpDeviceApi.provision()).rejects.toMatchObject({ code: "contract_mismatch" })
+  })
+
   it.each(["auto", "v1", "v2", "v1-native"] as const)(
     "accepts the verification semantics of %s",
     async (protocol) => {

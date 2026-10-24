@@ -183,10 +183,7 @@ fn manufacturer(value: &str) -> Option<Vendor> {
         | "qualcomm technologies inc"
         | "qualcomm technologies incorporated"
         | "qualcomm technologies ltd" => Some(Vendor::Qualcomm),
-        "mediatek"
-        | "mediatek inc"
-        | "mediatek incorporated"
-        | "mtk" => Some(Vendor::MediaTek),
+        "mediatek" | "mediatek inc" | "mediatek incorporated" | "mtk" => Some(Vendor::MediaTek),
         "samsung"
         | "samsung electronics"
         | "samsung electronics co ltd"
@@ -242,15 +239,11 @@ fn qualcomm_model(value: &str) -> bool {
 /// Format: "MT" followed by 4 digits, with an optional 1-2 character alpha suffix.
 fn mediatek_model(value: &str) -> bool {
     let model = value.to_ascii_uppercase();
-    let (part, suffix) = model.split_once('/').unwrap_or((&model, ""));
-    if !suffix.is_empty() {
-        return false;
-    }
-    let Some(number) = part.strip_prefix("MT") else {
+    let Some(number) = model.strip_prefix("MT") else {
         return false;
     };
     let digits = number.bytes().take_while(u8::is_ascii_digit).count();
-    (4..=4).contains(&digits)
+    digits == 4
         && number.len() - digits <= 2
         && number[digits..]
             .bytes()

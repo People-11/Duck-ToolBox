@@ -106,12 +106,15 @@ fn mediatek_model_numbers_identify_the_soc() {
             "{model}"
         );
     }
-    for model in ["MT68", "MT68780", "MT-6878", "MTK6878", "MT6878/NZA"] {
-        assert_eq!(
-            state(&[("ro.soc.model", model)]),
-            State::Unknown,
-            "{model}"
-        );
+    for model in [
+        "MT68",
+        "MT68780",
+        "MT-6878",
+        "MTK6878",
+        "MT6878/NZA",
+        "MT6878/",
+    ] {
+        assert_eq!(state(&[("ro.soc.model", model)]), State::Unknown, "{model}");
     }
 }
 

@@ -2,7 +2,7 @@
   "meta": {
     "title": "Penerbit RKP Perangkat",
     "description": "Tandatangani kunci P-256 dengan KeyMint TA perangkat ini, ambil rantai sertifikat RKP dari Google, lalu ekspor sebagai keybox.xml.",
-    "warning": "Fitur ini hanya berfungsi di sebagian perangkat dan hanya menerbitkan sertifikat RKP. Fitur menggunakan ABI privat Qualcomm KeyMint yang dapat berbeda antar-firmware. ABI yang tidak kompatibel dapat membuat proses pekerja atau aplikasi tepercaya berhenti. Keybox yang diekspor berisi kunci privat yang dibuat oleh perangkat lunak; simpan berkas dengan aman. Baca prasyarat sebelum melanjutkan."
+    "warning": "Fitur ini hanya berfungsi di sebagian perangkat dan hanya menerbitkan sertifikat RKP. Metode native menggunakan ABI privat Qualcomm KeyMint yang dapat berbeda antar-firmware. ABI yang tidak kompatibel dapat membuat proses pekerja atau aplikasi tepercaya berhenti. Keybox yang diekspor berisi kunci privat yang dibuat oleh perangkat lunak; simpan berkas dengan aman. Baca prasyarat sebelum melanjutkan. Perangkat MediaTek hanya menggunakan bridge V1 AIDL; kompatibilitas firmware dan penerimaan server belum diverifikasi."
   },
   "warning": {
     "title": "Sebelum melanjutkan"
@@ -18,7 +18,7 @@
     "platform": "Platform",
     "root": "Akses root",
     "vendor": "Vendor SoC",
-    "vendorOk": "Identifikasi SoC Qualcomm",
+    "vendorOk": "Identifikasi SoC",
     "library": "Pustaka Keymaster",
     "device": "Node perangkat",
     "fingerprint": "Sidik jari build",
@@ -41,7 +41,7 @@
     "root_required": "Akses root diperlukan untuk mencapai aplikasi tepercaya KeyMint.",
     "keymint_library_missing": "libkeymasterdeviceutils.so tidak ditemukan di /vendor/lib64.",
     "smcinvoke_missing": "/dev/smcinvoke tidak ada.",
-    "qualcomm_soc_required": "Produsen SoC selain Qualcomm teridentifikasi; operasi ini memerlukan Qualcomm KeyMint.",
+    "qualcomm_soc_required": "Produsen SoC yang tidak didukung teridentifikasi; operasi ini memerlukan Qualcomm atau MediaTek KeyMint.",
     "fingerprint_missing": "Sidik jari build tidak ada, sehingga server tidak dapat mengikat challenge.",
     "soc_vendor_unknown": "Produsen SoC tidak dapat diidentifikasi dari properti lokal atau informasi kernel.",
     "soc_vendor_conflict": "Informasi SoC lokal bertentangan. Periksa bukti identifikasi sebelum melanjutkan.",
@@ -80,7 +80,7 @@
   },
   "confirm": {
     "title": "Kirim permintaan ke KeyMint TA?",
-    "body": "Ini menjalankan RKP (V1 / V2) pada aplikasi tepercaya Qualcomm KeyMint di perangkat lalu mengirim hasilnya ke Google. Hanya berfungsi di sebagian perangkat dan hanya menerbitkan sertifikat RKP. Berkas yang diekspor berisi kunci privat; simpan dengan aman. Lanjutkan?"
+    "body": "Ini menjalankan RKP (V1 / V2) pada aplikasi tepercaya KeyMint di perangkat lalu mengirim hasilnya ke Google. Hanya berfungsi di sebagian perangkat dan hanya menerbitkan sertifikat RKP. Berkas yang diekspor berisi kunci privat; simpan dengan aman. Lanjutkan?"
   },
   "errors": {
     "acknowledgement_required": "Batasan belum disetujui.",

@@ -2,7 +2,7 @@
   "meta": {
     "title": "Device RKP Issuer",
     "description": "Sign a P-256 key with this device's KeyMint TA and get an RKP certificate chain from Google, exported as keybox.xml.",
-    "warning": "This only works on some devices and only issues RKP certificates. It uses a private KeyMint ABI (Qualcomm QSEE-COM or MediaTek TrustKernel) that may differ across firmware. An incompatible ABI can crash the worker or trusted app. The exported keybox contains a software-generated private key; keep the files private. Read the prerequisites before continuing."
+    "warning": "This only works on some devices and only issues RKP certificates. Native methods use a private Qualcomm KeyMint ABI that may differ across firmware. MediaTek devices use only the V1 AIDL bridge; firmware compatibility and server acceptance remain unverified. An incompatible ABI can crash the worker or trusted app. The exported keybox contains a software-generated private key; keep the files private. Read the prerequisites before continuing."
   },
   "warning": {
     "title": "Before you continue"

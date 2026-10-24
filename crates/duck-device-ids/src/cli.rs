@@ -12,7 +12,7 @@ use crate::{DeviceIdsProfile, detect_defaults, error::code_of, provision};
 pub static FEATURE: ClapFeature<Command> = ClapFeature::new(
     FeatureInfo {
         id: "device-ids",
-        summary: "Attestation device ID provisioning (Qualcomm / MediaTek)",
+        summary: "Qualcomm Keymaster attestation device ID provisioning",
         contract: 1,
     },
     dispatch,
@@ -26,7 +26,7 @@ fn dispatch<'a>(command: Command, ctx: &'a RunContext) -> BoxFuture<'a, CommandR
 pub enum Command {
     /// Print the identifiers detected from system properties.
     Defaults,
-    /// Provision device IDs into the Keymaster TA (profile JSON on stdin).
+    /// Provision device IDs into the Qualcomm Keymaster TA (profile JSON on stdin).
     Provision(ProvisionArgs),
 }
 

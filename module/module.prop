@@ -3,6 +3,5 @@ name=Duck ToolBox
 version=0.1.8-stable
 versionCode=96
 author=Eltavine & KOW & MhmRdd
-description=Android attestation toolbox: Tricky Store / TEESimulator / OhMyKeymint manager (a full Tricky Addon port), RKP workbench and device ID provisioning (Qualcomm / MediaTek), in one WebUI.
-# updateJson removed: fork diverges from upstream; version comparison is invalid.
-# Re-enable when this fork publishes its own update.json.
+description=Android attestation toolbox: Tricky Store / TEESimulator / OhMyKeymint manager (a full Tricky Addon port), RKP workbench and Qualcomm device ID provisioning, in one WebUI.
+updateJson=https://raw.githubusercontent.com/eltavine/Duck-ToolBox/main/update.json

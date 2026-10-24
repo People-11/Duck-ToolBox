@@ -12,6 +12,23 @@ function provision(protocol?: string) {
 }
 
 describe("device RKP mock protocol contract", () => {
+  it("uses only AIDL for MediaTek and refuses native protocols", () => {
+    history.replaceState(null, "", "/?soc=mediatek")
+    expect(provision()).toMatchObject({
+      csr_protocol: "v1",
+      csr_backend: "aidl",
+      attempts: [{ method: "v1", error: null }],
+      prerequisites: { mediatek_soc: true, v2_available: false, v1_native_available: false },
+    })
+    for (const protocol of ["v2", "v1-native"]) {
+      expect(() => provision(protocol)).toThrowError(
+        expect.objectContaining({ code: "unsupported_device" }),
+      )
+    }
+    history.replaceState(null, "", "/?soc=mediatek&rkp=v2-only")
+    expect(() => provision()).toThrowError(expect.objectContaining({ code: "unsupported_device" }))
+  })
+
   it.each([
     ["v1-only", "v2"],
     ["v1-only", "v1-native"],

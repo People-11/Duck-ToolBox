@@ -2,7 +2,7 @@
   "meta": {
     "title": "本機 RKP 簽發",
     "description": "用本機 KeyMint TA 為 P-256 金鑰簽章，向 Google 取得 RKP 憑證鏈並匯出 keybox.xml。",
-    "warning": "此功能僅在部分裝置上可用，且只能簽發 RKP 憑證。它透過 Qualcomm KeyMint 的廠商私有 ABI 呼叫，ABI 可能隨韌體變化。不相容的 ABI 可能導致工作程序或受信任應用程式當機。匯出的 keybox 包含軟體產生的私密金鑰，請妥善保管。繼續前請先閱讀前置條件。"
+    "warning": "此功能僅在部分裝置上可用，且只能簽發 RKP 憑證。原生方法透過 Qualcomm KeyMint 的廠商私有 ABI 呼叫，ABI 可能隨韌體變化。不相容的 ABI 可能導致工作程序或受信任應用程式當機。匯出的 keybox 包含軟體產生的私密金鑰，請妥善保管。繼續前請先閱讀前置條件。 聯發科裝置僅使用 V1 AIDL 橋接；韌體相容性與伺服器接受情況仍未驗證。"
   },
   "warning": {
     "title": "繼續之前"
@@ -18,7 +18,7 @@
     "platform": "平台",
     "root": "Root 權限",
     "vendor": "SoC 廠商",
-    "vendorOk": "高通 SoC 識別",
+    "vendorOk": "SoC 識別",
     "library": "Keymaster 函式庫",
     "device": "裝置節點",
     "fingerprint": "建置指紋",
@@ -41,7 +41,7 @@
     "root_required": "存取 KeyMint 受信任應用程式需要 root 權限。",
     "keymint_library_missing": "在 /vendor/lib64 中找不到 libkeymasterdeviceutils.so。",
     "smcinvoke_missing": "/dev/smcinvoke 不存在。",
-    "qualcomm_soc_required": "識別到非高通 SoC 廠商；此操作需要高通 KeyMint。",
+    "qualcomm_soc_required": "識別到不支援的 SoC 廠商；此操作需要高通或聯發科 KeyMint。",
     "fingerprint_missing": "缺少建置指紋，伺服器無法綁定 challenge。",
     "soc_vendor_unknown": "無法從本機屬性和核心資訊識別 SoC 廠商。",
     "soc_vendor_conflict": "本機 SoC 資訊互相衝突，請先核對識別依據。",
@@ -80,7 +80,7 @@
   },
   "confirm": {
     "title": "要向 KeyMint TA 傳送請求嗎？",
-    "body": "這會在本機高通 KeyMint 受信任應用程式上執行 RKP (V1 / V2)，並把結果提交給 Google。此功能僅在部分裝置上可用，且只能簽發 RKP 憑證。匯出的檔案包含私密金鑰，請妥善保管。是否繼續？"
+    "body": "這會在本機 KeyMint 受信任應用程式上執行 RKP (V1 / V2)，並把結果提交給 Google。此功能僅在部分裝置上可用，且只能簽發 RKP 憑證。匯出的檔案包含私密金鑰，請妥善保管。是否繼續？"
   },
   "errors": {
     "acknowledgement_required": "尚未確認使用限制。",

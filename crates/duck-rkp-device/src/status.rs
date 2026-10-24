@@ -1,6 +1,7 @@
 use duck_core::Context;
 use duck_platform::{exec, props};
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 use crate::{
     soc::{self, Detection, State},
@@ -9,9 +10,6 @@ use crate::{
 
 pub(crate) const LIBRARY_PATH: &str = "/vendor/lib64/libkeymasterdeviceutils.so";
 pub(crate) const DEVICE_PATH: &str = "/dev/smcinvoke";
-
-/// TrustKernel TEE kernel driver path, used by MediaTek devices with TrustKernel T6 TEE.
-pub(crate) const TRUSTKERNEL_DEVICE_PATH: &str = "/dev/tkcoredrv";
 
 /// The limitations every run reports. The CLI requires an explicit acknowledgement of
 /// both, and the WebUI shows them in a dialog before a request is sent.
@@ -34,7 +32,6 @@ pub(crate) struct DeviceStatus {
     pub aidl_apk: Option<String>,
     pub qualcomm_soc: bool,
     pub mediatek_soc: bool,
-    pub trustkernel_present: bool,
     pub library_path: &'static str,
     pub device_path: &'static str,
     pub fingerprint: String,
@@ -45,7 +42,10 @@ pub(crate) struct DeviceStatus {
 }
 
 pub(crate) fn detect(ctx: &Context) -> DeviceStatus {
-    let properties = props::all();
+    detect_with_properties(ctx, &props::all())
+}
+
+fn detect_with_properties(ctx: &Context, properties: &BTreeMap<String, String>) -> DeviceStatus {
     let fingerprint = properties
         .get("ro.build.fingerprint")
         .cloned()
@@ -61,11 +61,11 @@ pub(crate) fn detect(ctx: &Context) -> DeviceStatus {
     let device_present = ctx.sysroot.path(DEVICE_PATH).exists();
     let aidl_apk = v1::find_aidl_apk(&ctx.sysroot).map(|path| path.display().to_string());
     let v1_available = aidl_apk.is_some() && ctx.sysroot.path(v1::APP_PROCESS).is_file();
-    let v2_available = library_present && device_present;
-    let soc_detection = soc::detect(&properties, &ctx.sysroot);
+    let soc_detection = soc::detect(properties, &ctx.sysroot);
     let qualcomm_soc = soc_detection.state == State::Qualcomm;
     let mediatek_soc = soc_detection.state == State::MediaTek;
-    let trustkernel_present = ctx.sysroot.path(TRUSTKERNEL_DEVICE_PATH).exists();
+    // Only the AIDL bridge is vendor independent. Native adapters use Qualcomm's ABI.
+    let v2_available = qualcomm_soc && library_present && device_present;
 
     let mut blockers = Vec::new();
     for (passed, name) in [
@@ -78,10 +78,10 @@ pub(crate) fn detect(ctx: &Context) -> DeviceStatus {
         }
     }
     if !v1_available && !v2_available {
-        if !library_present {
+        if !mediatek_soc && !library_present {
             blockers.push("keymint_library_missing");
         }
-        if !device_present {
+        if !mediatek_soc && !device_present {
             blockers.push("smcinvoke_missing");
         }
         blockers.push("v1_unavailable");
@@ -102,7 +102,6 @@ pub(crate) fn detect(ctx: &Context) -> DeviceStatus {
         aidl_apk,
         qualcomm_soc,
         mediatek_soc,
-        trustkernel_present,
         library_path: LIBRARY_PATH,
         device_path: DEVICE_PATH,
         fingerprint,
@@ -147,6 +146,47 @@ mod tests {
         assert!(
             crate::issuance::blockers_for(&status, crate::issuance::Protocol::V2)
                 .contains(&"v2_unavailable")
+        );
+    }
+
+    #[test]
+    fn mediatek_uses_only_aidl_even_when_qualcomm_resource_paths_exist() {
+        let root = tempfile::tempdir().unwrap();
+        for file in [
+            LIBRARY_PATH,
+            DEVICE_PATH,
+            v1::APP_PROCESS,
+            "/apex/com.android.rkpd/priv-app/rkpd/rkpdapp.apk",
+        ] {
+            let path = root.path().join(file.trim_start_matches('/'));
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, []).unwrap();
+        }
+        let ctx = Context {
+            paths: duck_core::AppPaths::for_root(root.path(), root.path()),
+            sysroot: duck_core::Sysroot::new(root.path()),
+        };
+        let properties = [("ro.soc.manufacturer".into(), "MediaTek".into())].into();
+        let status = detect_with_properties(&ctx, &properties);
+        assert!(status.mediatek_soc && status.v1_available);
+        assert!(status.library_present && status.device_present);
+        assert!(!status.v2_available && !status.v1_native_available);
+        assert_eq!(
+            crate::issuance::candidates(crate::issuance::Protocol::Auto, &status),
+            [crate::issuance::Method::V1]
+        );
+        for (protocol, blocker) in [
+            (crate::issuance::Protocol::V2, "v2_unavailable"),
+            (crate::issuance::Protocol::V1Native, "v1_native_unavailable"),
+        ] {
+            assert!(crate::issuance::blockers_for(&status, protocol).contains(&blocker));
+        }
+        std::fs::remove_file(ctx.sysroot.path(v1::APP_PROCESS)).unwrap();
+        let unavailable = detect_with_properties(&ctx, &properties);
+        assert!(!unavailable.v1_available);
+        assert!(unavailable.blockers.contains(&"v1_unavailable"));
+        assert!(
+            crate::issuance::candidates(crate::issuance::Protocol::Auto, &unavailable).is_empty()
         );
     }
 }

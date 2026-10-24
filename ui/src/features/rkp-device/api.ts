@@ -15,7 +15,6 @@ const deviceStatusSchema = z
     aidl_apk: z.string().nullable(),
     qualcomm_soc: z.boolean(),
     mediatek_soc: z.boolean(),
-    trustkernel_present: z.boolean(),
     library_path: z.string(),
     device_path: z.string(),
     fingerprint: z.string(),
@@ -39,6 +38,9 @@ const deviceStatusSchema = z
   })
   .refine((data) => data.mediatek_soc === (data.soc_detection.state === "media_tek"), {
     message: "SoC identification disagrees with the MediaTek prerequisite",
+  })
+  .refine((data) => data.qualcomm_soc || (!data.v2_available && !data.v1_native_available), {
+    message: "Native RKP adapters require Qualcomm firmware",
   })
   .refine((data) => data.prerequisites_met === (data.blockers.length === 0), {
     message: "Prerequisite result disagrees with the reported blockers",

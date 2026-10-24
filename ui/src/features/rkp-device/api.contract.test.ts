@@ -88,10 +88,35 @@ describe.skipIf(!hasDuckd)("device RKP API against the real duckd", CONTRACT, ()
     expect(status.soc_detection.state).toBe(state)
     expect(status.qualcomm_soc).toBe(state === "qualcomm")
     expect(status.mediatek_soc).toBe(state === "media_tek")
+    expect(status.v2_available).toBe(
+      state === "qualcomm" && status.library_present && status.device_present,
+    )
+    expect(status.v1_native_available).toBe(status.v2_available)
     const socBlockers = status.blockers.filter((item) =>
       ["qualcomm_soc_required", "soc_vendor_unknown", "soc_vendor_conflict"].includes(item),
     )
     expect(socBlockers).toEqual(blocker ? [blocker] : [])
+  })
+
+  it("offers only AIDL on MediaTek even with Qualcomm resource paths present", async () => {
+    host = installHost({
+      props: { ...DEVICE_PROPS, "ro.soc.manufacturer": "MediaTek", "ro.hardware": "mt6789" },
+      files: {
+        "/vendor/lib64/libkeymasterdeviceutils.so": "",
+        "/dev/smcinvoke": "",
+        "/system/bin/app_process": "",
+        "/apex/com.android.rkpd/priv-app/rkpd/rkpdapp.apk": "",
+      },
+    })
+    const status = await rkpDeviceApi.status()
+    expect(status).toMatchObject({
+      mediatek_soc: true,
+      v1_available: true,
+      v2_available: false,
+      v1_native_available: false,
+    })
+    expect(status.blockers).not.toContain("qualcomm_soc_required")
+    expect(status.blockers).not.toContain("v1_unavailable")
   })
 
   it("uses kernel SoC information when vendor properties are absent", async () => {

@@ -8,8 +8,8 @@ use crate::{error::code_of, issuance::Protocol, service, status, worker};
 pub static FEATURE: ClapFeature<Command> = ClapFeature::new(
     FeatureInfo {
         id: "rkp-device",
-        summary: "Device-backed RKP issuance on compatible Qualcomm KeyMint firmware",
-        contract: 5,
+        summary: "Device-backed RKP issuance on compatible Qualcomm or MediaTek firmware",
+        contract: 6,
     },
     dispatch,
 );
