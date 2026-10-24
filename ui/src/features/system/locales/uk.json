@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "title": "Модуль і оновлення",
+    "description": "Версії, оновлення, вихідні файли, історія команд і обслуговування."
+  },
+  "device": {
+    "title": "Цей пристрій",
+    "android": "Android {release} · API {sdk}",
+    "patch": "Виправлення безпеки",
+    "kernel": "Ядро",
+    "selinux": "SELinux",
+    "rootManager": "Менеджер root-доступу",
+    "module": "Duck ToolBox",
+    "notDetected": "Не виявлено"
+  },
+  "rootManagers": {
+    "kernel-su": "KernelSU",
+    "apatch": "APatch",
+    "magisk": "Magisk"
+  },
+  "selinux": {
+    "enforcing": "Примусовий",
+    "permissive": "Дозвільний"
+  },
+  "module": {
+    "title": "Модуль",
+    "id": "Ідентифікатор модуля",
+    "version": "Версія модуля",
+    "binary": "Версія серверного компонента",
+    "author": "Автор"
+  },
+  "update": {
+    "title": "Оновлення",
+    "channel": "Канал оновлень",
+    "stable": "Стабільний",
+    "canary": "Canary (збірки CI)",
+    "off": "Вимкнено",
+    "check": "Перевірити оновлення",
+    "upToDate": "Встановлено останню версію.",
+    "available": "Доступна версія {version}",
+    "install": "Встановити оновлення",
+    "installed": "Оновлення встановлено. Перезавантажте пристрій, щоб застосувати його.",
+    "reboot": "Перезавантажити зараз",
+    "changelog": "Що нового",
+    "banner": "Доступна версія Duck ToolBox {version}",
+    "view": "Переглянути"
+  },
+  "files": {
+    "title": "Вихідні файли",
+    "empty": "Інструменти ще не створили жодного файлу.",
+    "folder": "Збережено в {path}"
+  },
+  "activity": {
+    "title": "Історія команд",
+    "empty": "Команди ще не виконувалися.",
+    "all": "Показати все",
+    "loadMore": "Завантажити ще",
+    "loadingMore": "Завантаження…",
+    "retryMore": "Повторити завантаження",
+    "failed": "Помилка"
+  },
+  "maintenance": {
+    "title": "Обслуговування",
+    "reboot": "Перезавантажити пристрій",
+    "rebootConfirm": "Перезавантажити пристрій зараз?",
+    "uninstall": "Видалити Duck ToolBox",
+    "uninstallConfirm": "Duck ToolBox буде видалено під час наступного перезавантаження. Збережені профілі та вихідні файли в /data/adb/duck-toolbox залишаться на місці.",
+    "uninstalled": "Duck ToolBox буде видалено після наступного перезавантаження."
+  },
+  "errors": {
+    "no_root_manager": "Підтримуваного менеджера root-доступу не знайдено.",
+    "invalid_url": "Можна відкривати лише посилання http(s).",
+    "no_update": "Немає доступних оновлень.",
+    "invalid_package": "Завантажений файл не є модулем Duck ToolBox.",
+    "download_failed": "Завантаження не вдалося."
+  }
+}
