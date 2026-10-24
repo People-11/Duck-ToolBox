@@ -14,23 +14,32 @@ for candidate in /data/adb/ksu/bin/resetprop /data/adb/ap/bin/resetprop /data/ad
     break
   fi
 done
-[ -n "$resetprop_bin" ] || exit 0
+if [ -z "$resetprop_bin" ]; then
+  printf '%s\n' 'Prop handler: resetprop is unavailable' >&2
+  exit 1
+fi
 
 # The Verified Boot hash from Key Attestation applies even with the handler disabled.
 if [ -f "$BOOT_HASH_FILE" ]; then
-  hash_value="$(grep -v '^#' "$BOOT_HASH_FILE" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
-  if [ -n "$hash_value" ]; then
-    "$resetprop_bin" -n ro.boot.vbmeta.digest "$hash_value"
-  else
-    rm -f "$BOOT_HASH_FILE"
-  fi
+  hash_value="$(grep -v '^[[:space:]]*#' "$BOOT_HASH_FILE" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+  case "$hash_value" in
+    '') rm -f "$BOOT_HASH_FILE" ;;
+    *[!0-9a-f]*) printf '%s\n' 'Prop handler: ignoring invalid boot hash' >&2 ;;
+    *)
+      case "${#hash_value}" in
+        64|128) "$resetprop_bin" -n ro.boot.vbmeta.digest "$hash_value" ;;
+        *) printf '%s\n' 'Prop handler: ignoring invalid boot hash length' >&2 ;;
+      esac
+      ;;
+  esac
 fi
 
 [ -f "$DISABLE_FLAG" ] && exit 0
 
-# The independently built engine owns overlapping sensitive properties when enabled.
+# A failed engine stage requests the original handler while still honoring its switch.
 PIF_ENGINE="${0%/*}/play-integrity/pif-engine"
-if [ -x "$PIF_ENGINE" ] && "$PIF_ENGINE" active; then
+if [ "${1:-}" != "--fallback" ] && [ -x "$PIF_ENGINE" ] \
+  && PIF_ENGINE_MODULE="${PIF_ENGINE%/*}" "$PIF_ENGINE" active; then
   exit 0
 fi
 

@@ -45,6 +45,17 @@ resetprop() { printf '%s' "$4" > "$PIF_ENGINE_DATA/restored"; }
     assert not (root / "continued").exists()
     (root / "uninstall.sh").unlink()
 
+    run('''
+getprop() { printf '1'; }
+resetprop() {
+  if [ "$#" = 3 ]; then printf '%s' "$*" > "$PIF_ENGINE_DATA/created"; fi
+}
+. "$PIF_ENGINE_SCRIPTS/common_func.sh"
+RESETPROP=false
+resetprop_if_empty ro.boot.vbmeta.device_state locked
+''', root)
+    assert (root / "created").read_text() == "-n ro.boot.vbmeta.device_state locked"
+
     # Validate the complete list before any whiteout or overlay operation.
     for invalid in ["/", "/system/", "/system/app", "/system/app/..", "/system/app/../*", "/system/overlay/*", "/system/overlay/config"]:
         (root / "custom.app_replace_list.txt").write_text(invalid + "\n")

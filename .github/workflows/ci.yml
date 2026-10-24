@@ -93,6 +93,7 @@ jobs:
           python3 scripts/test-play-integrity-native.py
           python3 scripts/test-play-integrity-java.py
           python3 scripts/test-play-integrity-scripts.py
+          python3 scripts/test-prop-handler.py
       - name: Engine scripts
         run: shellcheck -s bash --severity=error components/play-integrity/scripts/*.sh
       - name: Build engine and commit-pinned source notice

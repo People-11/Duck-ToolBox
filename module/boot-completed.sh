@@ -10,7 +10,9 @@ TSPA_FLAG="/storage/emulated/0/stop-tspa-auto-target"
 # Late pass for props the system sets after post-fs-data.
 sh "$MODPATH/prop.sh"
 if [ -x "$MODPATH/play-integrity/pif-engine" ]; then
-  "$MODPATH/play-integrity/pif-engine" stage late >/dev/null 2>&1 || true
+  PIF_ENGINE_MODULE="$MODPATH/play-integrity" \
+    "$MODPATH/play-integrity/pif-engine" stage late >/dev/null 2>&1 \
+    || sh "$MODPATH/prop.sh" --fallback
 fi
 
 "$DUCKCTL" tricky-store entry apply >/dev/null 2>&1 || true
