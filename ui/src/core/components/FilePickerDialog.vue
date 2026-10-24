@@ -74,7 +74,7 @@ const segments = computed(() =>
     .filter(Boolean)
     .map((name, index, all) => ({
       name,
-      path: `${props.root}/${all.slice(0, index + 1).join("/")}`,
+      path: `${props.root.replace(/\/+$/, "")}/${all.slice(0, index + 1).join("/")}`,
     })),
 )
 
@@ -133,8 +133,8 @@ async function onSystemFile(event: Event) {
           <button type="button" :class="crumb" @click="directory = root">
             {{ root }}
           </button>
-          <template v-for="segment in segments" :key="segment.path">
-            <span aria-hidden="true">/</span>
+          <template v-for="(segment, index) in segments" :key="segment.path">
+            <span v-if="root !== '/' || index > 0" aria-hidden="true">/</span>
             <button type="button" :class="crumb" @click="directory = segment.path">
               {{ segment.name }}
             </button>
@@ -143,24 +143,24 @@ async function onSystemFile(event: Event) {
       </DialogHeader>
 
       <div class="-mx-4 min-h-40 flex-1 overflow-y-auto">
+        <Item
+          v-if="directory !== root"
+          as="button"
+          size="sm"
+          class="state-layer relative w-full text-start"
+          @click="up"
+        >
+          <ItemMedia variant="icon"><ArrowUp /></ItemMedia>
+          <ItemContent
+            ><ItemTitle>{{ t("core.files.up") }}</ItemTitle></ItemContent
+          >
+        </Item>
         <QueryState
           :loading="listing.isPending.value"
           :error="listing.error.value"
           @retry="listing.refetch()"
         >
           <div class="flex flex-col">
-            <Item
-              v-if="directory !== root"
-              as="button"
-              size="sm"
-              class="state-layer relative w-full text-start"
-              @click="up"
-            >
-              <ItemMedia variant="icon"><ArrowUp /></ItemMedia>
-              <ItemContent
-                ><ItemTitle>{{ t("core.files.up") }}</ItemTitle></ItemContent
-              >
-            </Item>
             <Item
               v-for="entry in listing.data.value?.entries ?? []"
               :key="entry.path"

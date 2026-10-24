@@ -89,7 +89,13 @@ const mock: MockModule = {
     "system.files": (_args, flags) => {
       const path = String(flags.path ?? "/storage/emulated/0/Download")
       const extension = String(flags.extension ?? "")
-      const files = [
+      const params = new URLSearchParams(location.search)
+      if (path === params.get("missing-directory"))
+        throw new MockFailure(
+          "internal_error",
+          `read directory ${path}: No such file or directory (os error 2)`,
+        )
+      const files = params.get("files")?.split(",") ?? [
         "keybox.xml",
         "keybox-backup.xml",
         "TA-keybox_config_20260901.json",

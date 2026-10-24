@@ -54,7 +54,7 @@ const strong = ref(true),
   match = ref(false),
   list = ref(""),
   picker = ref(false)
-const source = ref("/data/adb/modules/playintegrityfix/custom.pif.prop")
+const source = ref("")
 const tabs = ["status", "config", "generate", "compatibility", "diagnostics", "license"] as const
 const fields = ref<Record<string, string> | null>(null)
 const rawEditor = ref(false)
@@ -78,13 +78,22 @@ watch(
 )
 function importSource() {
   rawEditor.value = true
-  void s.importSource(source.value)
+  void s.importSource(source.value.trim())
 }
 const data = computed(() => s.status.data.value)
+const pickerStart = computed(() => {
+  const path = source.value.trim()
+  return path.startsWith("/")
+    ? path.slice(0, path.lastIndexOf("/")) || "/"
+    : data.value?.data_dir || "/data/adb"
+})
 watch(
   data,
   (value) => {
-    if (value) list.value = value.app_replace_list
+    if (value) {
+      list.value = value.app_replace_list
+      if (!source.value) source.value = `${value.data_dir.replace(/\/+$/, "")}/custom.pif.json`
+    }
   },
   { immediate: true },
 )
@@ -448,7 +457,7 @@ async function importFile(event: Event) {
     <FilePickerDialog
       v-model:open="picker"
       extension=""
-      start="/data/adb/modules/playintegrityfix"
+      :start="pickerStart"
       root="/"
       @pick="picked"
     />
