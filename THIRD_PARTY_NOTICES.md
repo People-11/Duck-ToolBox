@@ -22,3 +22,8 @@ for as long as object code is distributed.
 
 Existing third-party notices, including `module/licenses/rkp-v1-oracle.txt`, remain
 applicable to their respective components.
+
+TrustKernel provisioning loads the device's existing `libkphproxy.so` at runtime in
+an isolated worker. No KPH vendor executable or library is distributed by this module.
+The root MIT license covers the independently written adapter, not the device's vendor
+libraries. Vendor ABI and firmware compatibility still require device validation.

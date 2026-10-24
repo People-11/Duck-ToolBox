@@ -50,6 +50,68 @@ struct Availability {
     v1: bool,
     v2: bool,
 }
+
+struct MediaTekEnvironment;
+
+impl Environment for MediaTekEnvironment {
+    fn capabilities(&self, ctx: &Context) -> DeviceStatus {
+        let mut status = FakeEnvironment.capabilities(ctx);
+        status.qualcomm_soc = false;
+        status.mediatek_soc = true;
+        status.soc_manufacturer = "MediaTek".into();
+        status.soc_detection = crate::soc::detect(
+            &[("ro.soc.manufacturer".into(), "MediaTek".into())].into(),
+            &ctx.sysroot,
+        );
+        status.v2_available = false;
+        status.v1_native_available = false;
+        status
+    }
+}
+
+#[tokio::test]
+async fn mediatek_never_calls_the_qualcomm_worker_or_falls_back_to_it() {
+    for malformed in [false, true] {
+        let (_dir, ctx) = working_dir("rkp-mediatek");
+        let mut ta = LegacyTa::new(-40);
+        ta.malformed = malformed;
+        let server = seeded_server();
+        let result = provision(
+            &ctx,
+            true,
+            Options::default(),
+            &FixedKeys,
+            &ta,
+            &server,
+            &MediaTekEnvironment,
+        )
+        .await;
+        assert_eq!(result.is_ok(), !malformed);
+        assert_eq!(*ta.calls.borrow(), ["v1"]);
+    }
+    for protocol in [Protocol::V2, Protocol::V1Native] {
+        let (_dir, ctx) = working_dir("rkp-mediatek-native");
+        let ta = LegacyTa::new(-40);
+        let server = seeded_server();
+        let error = provision(
+            &ctx,
+            true,
+            Options {
+                protocol,
+                ..Options::default()
+            },
+            &FixedKeys,
+            &ta,
+            &server,
+            &MediaTekEnvironment,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(crate::error::code_of(&error), "unsupported_device");
+        assert!(ta.calls.borrow().is_empty());
+        assert!(server.fingerprint.lock().unwrap().is_none());
+    }
+}
 impl Environment for Availability {
     fn capabilities(&self, ctx: &Context) -> DeviceStatus {
         let mut status = FakeEnvironment.capabilities(ctx);

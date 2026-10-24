@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{DeviceIdsProfile, error::DeviceIdsError};
+use crate::{Backend, DeviceIdsProfile, error::DeviceIdsError};
 
 pub(crate) const KM_TAG_ATTESTATION_ID_BRAND: u32 = 0x9000_02C6;
 pub(crate) const KM_TAG_ATTESTATION_ID_DEVICE: u32 = 0x9000_02C7;
@@ -104,13 +104,13 @@ pub(crate) struct SelectedId {
 
 /// Selects the IDs to provision, erroring when a required field is blank and skipping
 /// blank optional ones.
-pub(crate) fn collect_ids(profile: &DeviceIdsProfile) -> Result<Vec<SelectedId>> {
+pub(crate) fn collect_ids(profile: &DeviceIdsProfile, backend: Backend) -> Result<Vec<SelectedId>> {
     let mut ids = Vec::new();
 
     for spec in DEVICE_ID_SPECS {
         let value = (spec.value)(profile).trim();
         if value.is_empty() {
-            if spec.required {
+            if spec.required && !(spec.field == "serial" && backend == Backend::Trustkernel) {
                 return Err(DeviceIdsError::MissingField(spec.field).into());
             }
             continue;
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn requires_base_fields() {
-        let error = collect_ids(&DeviceIdsProfile::default()).unwrap_err();
+        let error = collect_ids(&DeviceIdsProfile::default(), crate::Backend::Qseecom).unwrap_err();
         assert!(error.to_string().contains("brand"));
     }
 
@@ -154,7 +154,7 @@ mod tests {
         let mut profile = profile();
         profile.imei2 = "123456789012345".into();
 
-        let ids = collect_ids(&profile).unwrap();
+        let ids = collect_ids(&profile, crate::Backend::Qseecom).unwrap();
         let imei2 = ids.iter().find(|entry| entry.label == "IMEI2").unwrap();
 
         assert_eq!(imei2.tag, KM_TAG_ATTESTATION_ID_SECOND_IMEI);
@@ -168,7 +168,7 @@ mod tests {
         profile.meid = "A0000000002321".into();
         profile.meid2 = "A0000000002322".into();
 
-        let labels: Vec<_> = collect_ids(&profile)
+        let labels: Vec<_> = collect_ids(&profile, crate::Backend::Qseecom)
             .unwrap()
             .iter()
             .map(|entry| entry.label)

@@ -247,7 +247,7 @@ fn features_manifest_lists_every_registered_tool() {
         .iter()
         .find(|feature| feature["id"] == "rkp-device")
         .unwrap();
-    assert_eq!(device["contract"], 5);
+    assert_eq!(device["contract"], 6);
 }
 
 #[test]

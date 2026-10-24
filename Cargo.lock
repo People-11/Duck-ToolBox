@@ -604,9 +604,11 @@ dependencies = [
  "duck-core",
  "duck-platform",
  "hex",
+ "libc",
  "libloading",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
 ]
 
@@ -619,6 +621,7 @@ dependencies = [
  "reqwest",
  "rustls",
  "serde",
+ "tempfile",
  "webpki-roots",
 ]
 

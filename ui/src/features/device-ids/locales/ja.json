@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "デバイス ID の書き込み",
-    "description": "構成証明用のデバイス ID を Qualcomm Keymaster のトラステッド アプリに書き込みます。",
-    "warning": "Qualcomm チップ搭載の一部の OnePlus デバイスでのみテストされています。その他のデバイスでの結果は保証されません。また、実際に書き込むと、Keymaster TA が構成証明する ID が変わります。"
+    "description": "Qualcomm QSEECom または MediaTek TrustKernel で証明用デバイス ID を書き込みます。",
+    "warning": "Qualcomm チップ搭載の一部の OnePlus デバイスでのみテストされています。その他のデバイスでの結果は保証されません。また、実際に書き込むと、Keymaster TA が構成証明する ID が変わります。 TrustKernel の書き込みは実験的です。rkp_flag と attestation_ids は個別に書き込むため、失敗時に一部だけ変更される場合があります。検証はオブジェクトの存在確認のみです。MEID と QSEECom の TA パスは適用されません。"
   },
   "form": {
     "main": "識別子",
@@ -26,7 +26,8 @@
     "reload": "デバイスから再読み込み",
     "provision": "デバイス ID を書き込む",
     "provisionDry": "ドライランを実行",
-    "confirm": "これらの ID を今すぐ Keymaster に書き込みますか？この操作は Duck ToolBox では元に戻せません。"
+    "confirm": "これらの ID を今すぐ Keymaster に書き込みますか？この操作は Duck ToolBox では元に戻せません。",
+    "trustkernelHint": "TrustKernel の書き込みは実験的です。rkp_flag と attestation_ids は個別に書き込むため、失敗時に一部だけ変更される場合があります。検証はオブジェクトの存在確認のみです。MEID と QSEECom の TA パスは適用されません。"
   },
   "result": {
     "title": "結果",
@@ -38,7 +39,12 @@
     "taVersion": "TA バージョン",
     "library": "ライブラリ",
     "report": "レポート",
-    "notAvailable": "なし"
+    "notAvailable": "なし",
+    "backend": "バックエンド",
+    "verification": "検証範囲",
+    "existenceOnly": "オブジェクトの存在確認のみ",
+    "taAcknowledgement": "TA の成功応答",
+    "omitted": "未書き込み"
   },
   "errors": {
     "missing_device_field": "必須の識別子が入力されていません。"

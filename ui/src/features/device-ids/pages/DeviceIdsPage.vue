@@ -30,14 +30,20 @@ const confirmOpen = ref(false)
 watch(
   defaults.data,
   (data) => {
-    if (data) profile.value = { ...data, dry_run: profile.value?.dry_run ?? true }
+    if (data) {
+      const { backend: _backend, ...fields } = data
+      profile.value = { ...fields, dry_run: profile.value?.dry_run ?? true }
+    }
   },
   { immediate: true },
 )
 
 type Key = keyof Omit<DeviceIdsProfile, "dry_run">
 const mainFields: Key[] = ["brand", "model", "device", "product", "manufacturer", "serial"]
-const advancedFields: Key[] = ["imei", "imei2", "meid", "meid2", "ta_name", "ta_path"]
+const trustkernel = computed(() => defaults.data.value?.backend === "trustkernel")
+const advancedFields = computed<Key[]>(() =>
+  trustkernel.value ? ["imei", "imei2"] : ["imei", "imei2", "meid", "meid2", "ta_name", "ta_path"],
+)
 const labels: Record<Key, () => string> = {
   brand: () => t("form.brand"),
   model: () => t("form.model"),
@@ -55,6 +61,9 @@ const labels: Record<Key, () => string> = {
 
 const provision = useMutation({
   mutationFn: () => deviceIdsApi.provision(profile.value!),
+  onMutate: () => {
+    result.value = null
+  },
   onSuccess: (data) => {
     result.value = data
     notifySuccess(t("result.done"))
@@ -74,10 +83,30 @@ const resultRows = computed(() => {
     { label: t("result.mode"), value: data.dry_run ? t("result.dry") : t("result.live") },
     { label: t("result.count"), value: data.count },
     {
+      label: t("result.backend"),
+      value: data.backend === "trustkernel" ? "TrustKernel" : "QSEECom",
+    },
+    {
+      label: t("result.verification"),
+      value:
+        data.verification === "existence_only"
+          ? t("result.existenceOnly")
+          : data.verification === "not_run"
+            ? t("result.dry")
+            : t("result.taAcknowledgement"),
+    },
+    ...(data.omitted_ids.length
+      ? [{ label: t("result.omitted"), value: data.omitted_ids.join(", ") }]
+      : []),
+    {
       label: t("result.taVersion"),
       value: [data.ta_api_version, data.ta_version].filter(Boolean).join(" / ") || none,
     },
-    { label: t("result.library"), value: data.loaded_library ?? none, mono: true },
+    {
+      label: t("result.library"),
+      value: data.loaded_library ?? none,
+      mono: true,
+    },
     { label: t("result.report"), value: data.report_path, mono: true, copy: true },
     ...data.ids.map((id) => ({ label: id.label, value: id.value, mono: true })),
   ]
@@ -92,6 +121,9 @@ const resultRows = computed(() => {
       @retry="defaults.refetch()"
     >
       <template v-if="profile">
+        <p v-if="trustkernel" class="text-muted-foreground text-sm">
+          {{ t("form.trustkernelHint") }}
+        </p>
         <SectionCard :title="t('form.main')" :description="t('form.mainHint')">
           <template #action>
             <Button

@@ -1,0 +1,280 @@
+use std::{collections::BTreeMap, fs};
+
+use duck_core::Sysroot;
+
+use super::{State, Vendor, detect};
+
+fn properties(values: &[(&str, &str)]) -> BTreeMap<String, String> {
+    values
+        .iter()
+        .map(|(key, value)| ((*key).into(), (*value).into()))
+        .collect()
+}
+
+fn state(values: &[(&str, &str)]) -> State {
+    let root = tempfile::tempdir().unwrap();
+    detect(&properties(values), &Sysroot::new(root.path())).state
+}
+
+#[test]
+fn recognizes_qualcomm_aliases_without_substring_false_positives() {
+    for alias in [
+        "QTI",
+        " qti\n",
+        "QCOM",
+        "Qualcomm",
+        "QUALCOMM Incorporated",
+        "Qualcomm Technologies, Inc.",
+        "Qualcomm Technologies Ltd.",
+    ] {
+        assert_eq!(
+            state(&[("ro.soc.manufacturer", alias)]),
+            State::Qualcomm,
+            "{alias}"
+        );
+    }
+    for unknown in [
+        "",
+        " ",
+        "unknown",
+        "n/a",
+        "not-qti",
+        "qti-other",
+        "not Qualcomm",
+        "Qualcommish",
+        "Qualcomm clone",
+    ] {
+        assert_eq!(
+            state(&[("ro.soc.manufacturer", unknown)]),
+            State::Unknown,
+            "{unknown}"
+        );
+    }
+}
+
+#[test]
+fn known_other_vendors_are_distinct_from_unknown_values() {
+    for vendor in [
+        "Samsung Electronics Co., Ltd.",
+        "Google",
+        "HiSilicon",
+        "UNISOC",
+        "Spreadtrum",
+        "Rockchip",
+        "NVIDIA",
+    ] {
+        assert_eq!(
+            state(&[("ro.soc.manufacturer", vendor)]),
+            State::Other,
+            "{vendor}"
+        );
+    }
+    assert_eq!(
+        state(&[("ro.soc.manufacturer", "unlisted vendor")]),
+        State::Unknown
+    );
+}
+
+#[test]
+fn mediatek_vendors_resolve_to_mediatek_state() {
+    for vendor in ["MediaTek", "MTK", "mediatek inc", "MEDIATEK"] {
+        assert_eq!(
+            state(&[("ro.soc.manufacturer", vendor)]),
+            State::MediaTek,
+            "{vendor}"
+        );
+    }
+}
+
+#[test]
+fn mediatek_detection_does_not_require_a_transport_node() {
+    let root = tempfile::tempdir().unwrap();
+    let result = detect(
+        &properties(&[("ro.soc.manufacturer", "MediaTek")]),
+        &Sysroot::new(root.path()),
+    );
+    assert_eq!(result.state, State::MediaTek);
+}
+
+#[test]
+fn mediatek_model_numbers_identify_the_soc() {
+    for model in ["MT6878", "MT6789", "MT6985", "MT6983V", "mt6878"] {
+        assert_eq!(
+            state(&[("ro.soc.model", model)]),
+            State::MediaTek,
+            "{model}"
+        );
+    }
+    for model in [
+        "MT68",
+        "MT68780",
+        "MT-6878",
+        "MTK6878",
+        "MT6878/NZA",
+        "MT6878/",
+    ] {
+        assert_eq!(state(&[("ro.soc.model", model)]), State::Unknown, "{model}");
+    }
+}
+
+#[test]
+fn mediatek_hardware_chipname_property_is_recognized() {
+    assert_eq!(
+        state(&[("ro.hardware.chipname", "MT6878")]),
+        State::MediaTek
+    );
+}
+
+#[test]
+fn mediatek_vendor_platform_property_is_recognized() {
+    assert_eq!(
+        state(&[("ro.vendor.mediatek.platform", "MT6878")]),
+        State::MediaTek
+    );
+}
+
+#[test]
+fn mediatek_trustkernel_device_properties_identify_correctly() {
+    // Simulates a Zinwa APhoneM16 (MT6878, TrustKernel T6 TEE) property set.
+    let root = tempfile::tempdir().unwrap();
+    let values = properties(&[
+        ("ro.soc.manufacturer", "MediaTek"),
+        ("ro.soc.model", "MT6878"),
+        ("ro.hardware.chipname", "MT6878"),
+        ("ro.hardware", "mt6878"),
+        ("ro.board.platform", "mt6878"),
+        ("ro.vendor.mediatek.platform", "MT6878"),
+    ]);
+    let result = detect(&values, &Sysroot::new(root.path()));
+    assert_eq!(result.state, State::MediaTek);
+    assert_eq!(result.model, "MT6878");
+    assert!(result.evidence.len() >= 5);
+}
+
+#[test]
+fn falls_back_to_vendor_properties_and_hardware_identifiers() {
+    for key in [
+        "ro.vendor.soc.manufacturer",
+        "ro.hardware",
+        "ro.boot.hardware",
+    ] {
+        assert_eq!(state(&[(key, "qcom")]), State::Qualcomm, "{key}");
+    }
+    assert_eq!(
+        state(&[("ro.soc.manufacturer", "unknown"), ("ro.hardware", "qcom")]),
+        State::Qualcomm
+    );
+    assert_eq!(state(&[("ro.hardware", "not-qcom")]), State::Unknown);
+}
+
+#[test]
+fn recognizes_bounded_soc_part_numbers_in_soc_fields() {
+    for model in [
+        "SM8650",
+        "SM8650-AB",
+        "SM8650Q-AB",
+        "sm8550",
+        "MSM8998",
+        "APQ8084",
+        "SDM660",
+        "QCM6490",
+        "QCS8550",
+    ] {
+        assert_eq!(
+            state(&[("ro.soc.model", model)]),
+            State::Qualcomm,
+            "{model}"
+        );
+    }
+    for model in [
+        "SM-S928B",
+        "SM8650 clone",
+        "SM865000",
+        "SM8",
+        "fake-SM8650",
+        "SM8650-TOOLONG",
+        "SM8650未知",
+    ] {
+        assert_eq!(state(&[("ro.soc.model", model)]), State::Unknown, "{model}");
+    }
+    assert_eq!(
+        state(&[("ro.vendor.qti.soc_model", "SM8650")]),
+        State::Qualcomm
+    );
+}
+
+#[test]
+fn phone_brand_product_model_and_transport_files_do_not_identify_the_soc() {
+    let root = tempfile::tempdir().unwrap();
+    for path in ["vendor/lib64/libkeymasterdeviceutils.so", "dev/smcinvoke"] {
+        let path = root.path().join(path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, "present").unwrap();
+    }
+    let result = detect(
+        &properties(&[
+            ("ro.product.manufacturer", "Qualcomm"),
+            ("ro.product.model", "SM8650"),
+        ]),
+        &Sysroot::new(root.path()),
+    );
+    assert_eq!(result.state, State::Unknown);
+}
+
+#[test]
+fn kernel_soc_family_is_a_read_only_fallback_with_a_bounded_read() {
+    let root = tempfile::tempdir().unwrap();
+    let family = root.path().join("sys/devices/soc0/family");
+    fs::create_dir_all(family.parent().unwrap()).unwrap();
+    fs::write(&family, "Snapdragon\n").unwrap();
+    let result = detect(&properties(&[]), &Sysroot::new(root.path()));
+    assert_eq!(result.state, State::Qualcomm);
+    assert_eq!(result.evidence[0].source, "/sys/devices/soc0/family");
+    assert_eq!(result.evidence[0].value, "Snapdragon");
+    assert_eq!(result.evidence[0].vendor, Some(Vendor::Qualcomm));
+    assert_eq!(fs::read_to_string(&family).unwrap(), "Snapdragon\n");
+    for invalid in [vec![b'x'; 257], vec![0xff; 10]] {
+        fs::write(&family, invalid).unwrap();
+        assert_eq!(
+            detect(&properties(&[]), &Sysroot::new(root.path())).state,
+            State::Unknown
+        );
+    }
+}
+
+#[test]
+fn conflicting_sources_are_reported_instead_of_choosing_the_first() {
+    let root = tempfile::tempdir().unwrap();
+    let values = properties(&[
+        ("ro.soc.manufacturer", "MediaTek"),
+        ("ro.soc.model", "SM8650"),
+        ("ro.hardware", "qcom"),
+    ]);
+    let result = detect(&values, &Sysroot::new(root.path()));
+    assert_eq!(result.state, State::Conflicting);
+    assert_eq!(result.model, "SM8650");
+    assert_eq!(result.evidence.len(), 3);
+}
+
+#[test]
+fn pjx110_properties_and_kernel_snapshot_identify_qualcomm_consistently() {
+    let root = tempfile::tempdir().unwrap();
+    let directory = root.path().join("sys/devices/soc0");
+    fs::create_dir_all(&directory).unwrap();
+    fs::write(directory.join("family"), "Snapdragon\n").unwrap();
+    fs::write(directory.join("machine"), "PINEAPPLE\n").unwrap();
+    let values = properties(&[
+        ("ro.soc.manufacturer", "QTI"),
+        ("ro.soc.model", "SM8650"),
+        ("ro.vendor.qti.soc_model", "SM8650"),
+        ("ro.hardware", "qcom"),
+        ("ro.boot.hardware", "qcom"),
+        ("ro.board.platform", "pineapple"),
+        ("ro.product.board", "pineapple"),
+        ("ro.product.manufacturer", "OnePlus"),
+    ]);
+    let result = detect(&values, &Sysroot::new(root.path()));
+    assert_eq!(result.state, State::Qualcomm);
+    assert_eq!(result.model, "SM8650");
+    assert_eq!(result.evidence.len(), 9);
+}

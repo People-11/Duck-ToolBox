@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "设备标识写入",
-    "description": "把证明用的设备标识写入 Qualcomm Keymaster 可信应用。",
-    "warning": "目前只在部分一加高通设备上测试过，其他设备的结果不作担保；实际写入会改变 Keymaster TA 证明的设备标识。"
+    "description": "通过高通 QSEECom 或联发科 TrustKernel 写入证明设备 ID。",
+    "warning": "目前只在部分一加高通设备上测试过，其他设备的结果不作担保；实际写入会改变 Keymaster TA 证明的设备标识。 TrustKernel 写入属于实验性支持。rkp_flag 与 attestation_ids 分别写入，失败时可能已完成部分写入；验证仅检查对象是否存在。MEID 和 QSEECom TA 位置不适用。"
   },
   "form": {
     "main": "标识",
@@ -26,7 +26,8 @@
     "reload": "重新从设备读取",
     "provision": "写入设备标识",
     "provisionDry": "开始试运行",
-    "confirm": "现在把这些标识写入 Keymaster 吗？Duck ToolBox 无法撤销此操作。"
+    "confirm": "现在把这些标识写入 Keymaster 吗？Duck ToolBox 无法撤销此操作。",
+    "trustkernelHint": "TrustKernel 写入属于实验性支持。rkp_flag 与 attestation_ids 分别写入，失败时可能已完成部分写入；验证仅检查对象是否存在。MEID 和 QSEECom TA 位置不适用。"
   },
   "result": {
     "title": "结果",
@@ -38,7 +39,12 @@
     "taVersion": "TA 版本",
     "library": "库",
     "report": "报告",
-    "notAvailable": "不可用"
+    "notAvailable": "不可用",
+    "backend": "后端",
+    "verification": "验证范围",
+    "existenceOnly": "仅验证对象存在",
+    "taAcknowledgement": "TA 确认成功",
+    "omitted": "未写入"
   },
   "errors": {
     "missing_device_field": "有必填的标识为空。"

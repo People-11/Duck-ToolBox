@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "Écriture des ID d’appareil",
-    "description": "Écrire les ID d’attestation de l’appareil dans l’application de confiance Keymaster de Qualcomm.",
-    "warning": "Cet outil n’a été testé que sur certains appareils OnePlus équipés d’une puce Qualcomm. Les résultats sur d’autres appareils ne sont pas garantis, et une écriture réelle modifie les ID attestés par la TA Keymaster."
+    "description": "Écrire les identifiants d’attestation via Qualcomm QSEECom ou MediaTek TrustKernel.",
+    "warning": "Cet outil n’a été testé que sur certains appareils OnePlus équipés d’une puce Qualcomm. Les résultats sur d’autres appareils ne sont pas garantis, et une écriture réelle modifie les ID attestés par la TA Keymaster. La prise en charge de TrustKernel est expérimentale. rkp_flag et attestation_ids sont écrits séparément ; un échec peut laisser une écriture partielle. La vérification confirme uniquement l’existence des objets. MEID et les chemins TA de QSEECom ne s’appliquent pas."
   },
   "form": {
     "main": "Identifiants",
@@ -26,7 +26,8 @@
     "reload": "Recharger depuis l’appareil",
     "provision": "Écrire les ID d’appareil",
     "provisionDry": "Lancer la simulation",
-    "confirm": "Écrire ces ID dans Keymaster maintenant ? Duck ToolBox ne pourra pas annuler cette opération."
+    "confirm": "Écrire ces ID dans Keymaster maintenant ? Duck ToolBox ne pourra pas annuler cette opération.",
+    "trustkernelHint": "La prise en charge de TrustKernel est expérimentale. rkp_flag et attestation_ids sont écrits séparément ; un échec peut laisser une écriture partielle. La vérification confirme uniquement l’existence des objets. MEID et les chemins TA de QSEECom ne s’appliquent pas."
   },
   "result": {
     "title": "Résultat",
@@ -38,7 +39,12 @@
     "taVersion": "Version de la TA",
     "library": "Bibliothèque",
     "report": "Rapport",
-    "notAvailable": "Non disponible"
+    "notAvailable": "Non disponible",
+    "backend": "Backend",
+    "verification": "Vérification",
+    "existenceOnly": "Existence des objets uniquement",
+    "taAcknowledgement": "Confirmation de la TA",
+    "omitted": "Non écrits"
   },
   "errors": {
     "missing_device_field": "Un identifiant obligatoire est vide."

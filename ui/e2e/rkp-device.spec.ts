@@ -131,7 +131,9 @@ test("identifies QTI and keeps firmware compatibility unverified", async ({ page
   await expect(page.getByText("尚未验证", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "签发 RKP keybox", exact: true })).toBeEnabled()
   await expect(
-    page.getByText("识别到了非高通 SoC 厂商；该操作需要高通 KeyMint。", { exact: true }),
+    page.getByText("识别到了不受支持的 SoC 厂商；该操作需要高通或联发科 KeyMint。", {
+      exact: true,
+    }),
   ).toHaveCount(0)
   await page.getByText("识别依据", { exact: true }).click()
   await expect(page.getByText("ro.soc.manufacturer", { exact: true })).toBeVisible()
@@ -156,7 +158,10 @@ for (const [soc, message] of [
     "The SoC vendor could not be identified from local properties or kernel information.",
   ],
   ["conflict", "Local SoC information conflicts. Review the detection evidence before continuing."],
-  ["other", "A non-Qualcomm SoC vendor was identified; this operation requires Qualcomm KeyMint."],
+  [
+    "other",
+    "An unsupported SoC vendor was identified; this operation requires Qualcomm or MediaTek KeyMint.",
+  ],
 ]) {
   test(`distinguishes ${soc} hardware and blocks issuance`, async ({ page, open }) => {
     await open("/rkp-device", { query: { soc: soc! } })
@@ -165,7 +170,7 @@ for (const [soc, message] of [
     if (soc !== "other")
       await expect(
         page.getByText(
-          "A non-Qualcomm SoC vendor was identified; this operation requires Qualcomm KeyMint.",
+          "An unsupported SoC vendor was identified; this operation requires Qualcomm or MediaTek KeyMint.",
           { exact: true },
         ),
       ).toHaveCount(0)

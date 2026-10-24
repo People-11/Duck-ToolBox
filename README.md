@@ -55,11 +55,15 @@ changed, removed or added on its own.
   a seed you hold.
   - Asks this device's Qualcomm KeyMint TA for a `CSR_V2` over a P-256 key we generated,
     submits the result to Google's RKP server and exports `keybox.xml` with the private key.
-  - Supports a legacy V1 AIDL path for Qualcomm PureSoft firmware with a zero HBK.
+  - Supports a legacy V1 AIDL path for Qualcomm PureSoft and MediaTek firmware with a zero HBK.
     The public-key MAC and CSR are constructed in Rust; a small isolated bridge calls
     the device's own AIDL proxy, using the EEK curve reported by its HAL.
     This method is adapted from [LazyBonesLZY's rkp-v1-oracle](https://github.com/LazyBonesLZY/rkp-v1-oracle)
     at revision `b28480c98c1256753aed140c6ff86d0336f55c45` (MIT; see `module/licenses/rkp-v1-oracle.txt`).
+    MediaTek uses only this AIDL adapter. Native V1 and V2 require Qualcomm identification
+    as well as the vendor library and device node. Device ID provisioning uses a separate
+    TrustKernel KPH adapter described below. Real-device
+    compatibility and production server acceptance for MediaTek remain unverified.
   - Select `auto`, `v1`, `v2` or `v1-native` in the WebUI or with `rkp-device provision --protocol`.
     Automatic mode tries the available methods in order: V2, AIDL V1, then native V1.
     Each failed signing, CSR validation, server request or certificate validation moves
@@ -111,8 +115,13 @@ changed, removed or added on its own.
     file so two base64 inputs fit the root manager's shell transport. Device acquisition
     and firmware patching are outside this feature's current capabilities; a local match
     does not prove server acceptance.
-- **Device ID Provisioner**: writes attestation device IDs into the Qualcomm Keymaster
-  trusted app through `libQSEEComAPI.so`, with a dry-run mode.
+- **Device ID Provisioner**: retains Qualcomm Keymaster provisioning through
+  `libQSEEComAPI.so` and supports experimental MediaTek TrustKernel provisioning through
+  the device's `libkphproxy.so`. Both paths auto-fill identifiers and support dry runs.
+  TrustKernel prepares and writes `rkp_flag` and `attestation_ids`, with private request
+  files, isolated vendor calls, timeouts and partial-write reports. Its existence check does not
+  verify payload equality; MEID entries are explicitly reported as omitted on this path.
+  See [backend contracts, ABI evidence and compatibility limits](docs/trustkernel-provisioning.md).
 - **Module & updates**: version and device summary, stable and canary updates with
   changelog, output files, command history, uninstall and reboot.
 
@@ -245,10 +254,10 @@ Commands that take input read JSON from stdin with `--stdin-json`.
 
 `rkp-device status` identifies the SoC from manufacturer aliases, SoC part numbers,
 hardware properties and the kernel's [SoC family/machine attributes](https://www.kernel.org/doc/rustdoc/latest/kernel/soc/struct.Attributes.html). It reports the raw
-evidence and distinguishes Qualcomm, another vendor, unknown and conflicting information.
+evidence and distinguishes Qualcomm, MediaTek, another vendor, unknown and conflicting information.
 Unknown or conflicting information blocks issuance rather than guessing. These local
 checks do not establish firmware ABI compatibility or server acceptance. The status format
-uses feature contract 5; update the backend and WebUI together.
+uses feature contract 6; update the backend and WebUI together.
 
 For offline identity checks, raw input must contain exactly 32 bytes unless `--offset`
 selects a 32-byte slice of a larger capture. Hex input must contain exactly 64 hexadecimal

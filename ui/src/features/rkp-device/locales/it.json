@@ -2,7 +2,7 @@
   "meta": {
     "title": "Emittente RKP del dispositivo",
     "description": "Firma una chiave P-256 con il KeyMint TA di questo dispositivo, ottiene da Google la catena di certificati RKP e la esporta come keybox.xml.",
-    "warning": "Questa funzione è disponibile solo su alcuni dispositivi ed emette solo certificati RKP. Usa una ABI privata di Qualcomm KeyMint, che può variare in base al firmware. Una ABI incompatibile può causare il blocco del processo di lavoro o dell’app attendibile. Il keybox esportato contiene una chiave privata generata via software; conserva i file al sicuro. Leggi i prerequisiti prima di continuare."
+    "warning": "Questa funzione è disponibile solo su alcuni dispositivi ed emette solo certificati RKP. I metodi nativi usano una ABI privata di Qualcomm KeyMint, che può variare in base al firmware. Una ABI incompatibile può causare il blocco del processo di lavoro o dell’app attendibile. Il keybox esportato contiene una chiave privata generata via software; conserva i file al sicuro. Leggi i prerequisiti prima di continuare. MediaTek usa solo il bridge V1 AIDL; la compatibilità del firmware e l’accettazione del server non sono verificate."
   },
   "warning": {
     "title": "Prima di continuare"
@@ -18,7 +18,7 @@
     "platform": "Piattaforma",
     "root": "Accesso root",
     "vendor": "Produttore SoC",
-    "vendorOk": "Identificazione SoC Qualcomm",
+    "vendorOk": "Identificazione SoC",
     "library": "Libreria Keymaster",
     "device": "Nodo del dispositivo",
     "fingerprint": "Impronta di build",
@@ -41,7 +41,7 @@
     "root_required": "Serve l'accesso root per raggiungere l'app attendibile KeyMint.",
     "keymint_library_missing": "libkeymasterdeviceutils.so non è stato trovato in /vendor/lib64.",
     "smcinvoke_missing": "/dev/smcinvoke non esiste.",
-    "qualcomm_soc_required": "È stato identificato un produttore diverso da Qualcomm; questa operazione richiede Qualcomm KeyMint.",
+    "qualcomm_soc_required": "È stato identificato un produttore non supportato; questa operazione richiede Qualcomm o MediaTek KeyMint.",
     "fingerprint_missing": "Manca l'impronta di build, quindi il server non può associare un challenge.",
     "soc_vendor_unknown": "Impossibile identificare il produttore del SoC dalle proprietà locali o dal kernel.",
     "soc_vendor_conflict": "Le informazioni locali del SoC sono in conflitto. Verifica le fonti prima di continuare.",
@@ -80,7 +80,7 @@
   },
   "confirm": {
     "title": "Inviare una richiesta al KeyMint TA?",
-    "body": "Questo esegue RKP (V1 / V2) sull'app attendibile KeyMint Qualcomm del dispositivo e invia il risultato a Google. Funziona solo su alcuni dispositivi e rilascia solo certificati RKP. I file esportati contengono una chiave privata; conservali al sicuro. Continuare?"
+    "body": "Questo esegue RKP (V1 / V2) sull'app attendibile KeyMint del dispositivo e invia il risultato a Google. Funziona solo su alcuni dispositivi e rilascia solo certificati RKP. I file esportati contengono una chiave privata; conservali al sicuro. Continuare?"
   },
   "errors": {
     "acknowledgement_required": "Le limitazioni non sono state accettate.",

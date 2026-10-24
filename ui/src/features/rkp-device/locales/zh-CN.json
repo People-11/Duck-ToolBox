@@ -2,7 +2,7 @@
   "meta": {
     "title": "本机 RKP 签发",
     "description": "用本机 KeyMint TA 为 P-256 密钥签名，向 Google 取得 RKP 证书链并导出 keybox.xml。",
-    "warning": "此功能仅在部分设备上可用，并且只能签发 RKP 证书。它通过高通 KeyMint 的厂商私有 ABI 调用，ABI 可能随固件变化。不兼容的 ABI 可能导致工作进程或可信应用崩溃。导出的 keybox 包含软件生成的私钥，请妥善保管。继续前请先阅读前置条件。"
+    "warning": "此功能仅在部分设备上可用，并且只能签发 RKP 证书。原生方法通过高通 KeyMint 的厂商私有 ABI 调用，ABI 可能随固件变化。不兼容的 ABI 可能导致工作进程或可信应用崩溃。导出的 keybox 包含软件生成的私钥，请妥善保管。继续前请先阅读前置条件。 联发科设备仅使用 V1 AIDL 桥接；固件兼容性和服务器接受情况仍未验证。"
   },
   "warning": {
     "title": "继续之前"
@@ -18,7 +18,7 @@
     "platform": "平台",
     "root": "Root 权限",
     "vendor": "SoC 厂商",
-    "vendorOk": "高通 SoC 识别",
+    "vendorOk": "SoC 识别",
     "library": "Keymaster 库",
     "device": "设备节点",
     "fingerprint": "构建指纹",
@@ -41,7 +41,7 @@
     "root_required": "访问 KeyMint 可信应用需要 root 权限。",
     "keymint_library_missing": "在 /vendor/lib64 中未找到 libkeymasterdeviceutils.so。",
     "smcinvoke_missing": "/dev/smcinvoke 不存在。",
-    "qualcomm_soc_required": "识别到了非高通 SoC 厂商；该操作需要高通 KeyMint。",
+    "qualcomm_soc_required": "识别到了不受支持的 SoC 厂商；该操作需要高通或联发科 KeyMint。",
     "fingerprint_missing": "缺少构建指纹，服务器无法绑定 challenge。",
     "soc_vendor_unknown": "无法从本地属性和内核信息识别 SoC 厂商。",
     "soc_vendor_conflict": "本地 SoC 信息互相冲突，请先核对识别依据。",
@@ -80,7 +80,7 @@
   },
   "confirm": {
     "title": "向 KeyMint TA 发送请求？",
-    "body": "这会在本机高通 KeyMint 可信应用上执行 RKP (V1 / V2)，并把结果提交给 Google。该功能仅在部分设备上可用，且只能签发 RKP 证书。生成的文件包含私钥，请妥善保管。是否继续？"
+    "body": "这会在本机 KeyMint 可信应用上执行 RKP (V1 / V2)，并把结果提交给 Google。该功能仅在部分设备上可用，且只能签发 RKP 证书。生成的文件包含私钥，请妥善保管。是否继续？"
   },
   "errors": {
     "acknowledgement_required": "尚未确认使用限制。",

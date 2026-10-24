@@ -10,6 +10,7 @@ use std::{
     time::Duration,
 };
 
+use crate::backend::SessionInfo;
 use anyhow::{Context, Result, anyhow, bail};
 use duck_platform::props;
 use libloading::Library;
@@ -37,15 +38,6 @@ type StartApp =
 type SendCmd =
     unsafe extern "C" fn(*mut QseeComHandle, *mut c_void, u32, *mut c_void, u32) -> c_int;
 type ShutdownApp = unsafe extern "C" fn(*mut *mut QseeComHandle) -> c_int;
-
-/// Metadata gathered while talking to the TA, surfaced in the provisioning report.
-#[derive(Debug, Default, Clone)]
-pub(crate) struct SessionInfo {
-    pub(crate) loaded_library: Option<String>,
-    pub(crate) ta_api_version: Option<String>,
-    pub(crate) ta_version: Option<String>,
-    pub(crate) response_hex: Option<String>,
-}
 
 #[derive(Debug, Clone, Copy)]
 struct KmVersion {
@@ -85,6 +77,7 @@ pub(crate) fn provision(ta_path: &str, ta_name: &str, command: &[u8]) -> Result<
         ta_api_version: Some(format!("{}.{}", version.ta_api_major, version.ta_api_minor)),
         ta_version: Some(format!("{}.{}", version.ta_major, version.ta_minor)),
         response_hex,
+        ..SessionInfo::default()
     })
 }
 
