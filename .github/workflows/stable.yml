@@ -12,8 +12,24 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  version:
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require a version change or manual release request
+        id: version
+        run: python3 .github/workflows/scripts/stable_version.py
+
+  release:
+    needs: version
+    if: github.ref == 'refs/heads/main' && needs.version.outputs.publish == 'true'
     uses: ./.github/workflows/ci.yml
     with:
       stable: true

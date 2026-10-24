@@ -212,7 +212,9 @@ Each successful package on a `main` push or manual CI run also publishes the mod
 as a GitHub prerelease. Tags use `nightly-<8-character commit hash>-<UTC timestamp>`
 (for example, `nightly-1234abcd-20261011T120000123456Z`). These releases do not replace
 the latest stable release; Telegram uploads continue on push builds.
-The manual **Stable** workflow reuses the CI checks and builds, preserves `version`
+The **Stable** workflow runs when the `version` field changes in
+`module/module.prop` or through a manual request. Metadata-only edits skip publication.
+It reuses the CI checks and builds, preserves `version`
 and `versionCode` from `module/module.prop`, publishes `v<version>` as the latest
 non-prerelease release, and sends the same ZIP to Telegram with a `stable` label.
 Before running it on `main`, increase `versionCode` beyond all accepted releases and
