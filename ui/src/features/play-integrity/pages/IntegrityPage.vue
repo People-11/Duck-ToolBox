@@ -128,7 +128,11 @@ async function importFile(event: Event) {
 </script>
 <template>
   <div class="mx-auto flex min-h-full w-full max-w-4xl flex-col">
-    <nav ref="tabNav" :aria-label="t('meta.title')" class="mx-4 mt-4 flex min-w-0 gap-1 overflow-x-auto rounded-2xl bg-muted/70 p-1.5">
+    <nav
+      ref="tabNav"
+      :aria-label="t('meta.title')"
+      class="mx-4 mt-4 flex min-w-0 gap-1 overflow-x-auto rounded-2xl bg-muted/70 p-1.5"
+    >
       <RouterLink
         v-for="tab in tabs"
         :key="tab"
@@ -158,7 +162,11 @@ async function importFile(event: Event) {
           :title="t('nav.status')"
           :description="t('limits')"
         >
-          <p role="status" aria-live="polite" class="bg-muted/70 rounded-xl px-4 py-3 text-xl leading-7 font-semibold break-words">
+          <p
+            role="status"
+            aria-live="polite"
+            class="bg-muted/70 rounded-xl px-4 py-3 text-xl leading-7 font-semibold break-words"
+          >
             {{
               s.status.data.value
                 ? global.t(`playIntegrity.states.${s.status.data.value.state}`)
@@ -246,7 +254,11 @@ async function importFile(event: Event) {
                 @change="importFile"
               />
               <div class="mt-4 flex flex-col gap-2">
-                <Input v-model="source" :aria-label="t('deviceFile')" class="min-w-0 font-mono text-xs" />
+                <Input
+                  v-model="source"
+                  :aria-label="t('deviceFile')"
+                  class="min-w-0 font-mono text-xs"
+                />
                 <div class="flex flex-wrap gap-2">
                   <Button variant="outline" @click="picker = true">{{
                     global.t("core.actions.browse")

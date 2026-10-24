@@ -7,7 +7,10 @@ defineProps<{ title: string }>()
 <template>
   <Collapsible class="min-w-0 rounded-xl border border-border/70 bg-muted/20 p-2">
     <CollapsibleTrigger as-child>
-      <Button variant="ghost" class="group min-h-11 w-full justify-between px-3 text-start whitespace-normal">
+      <Button
+        variant="ghost"
+        class="group min-h-11 w-full justify-between px-3 text-start whitespace-normal"
+      >
         <span>{{ title }}</span
         ><ChevronDown
           class="shrink-0 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none"

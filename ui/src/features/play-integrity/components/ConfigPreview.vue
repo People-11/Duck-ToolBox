@@ -53,7 +53,11 @@ const { t } = useIntegrityI18n()
         </tbody>
       </table>
     </div>
-    <div v-for="patch in patches" :key="patch.target.id" class="mt-4 rounded-xl border border-border/70 bg-muted/20 p-4">
+    <div
+      v-for="patch in patches"
+      :key="patch.target.id"
+      class="mt-4 rounded-xl border border-border/70 bg-muted/20 p-4"
+    >
       <label class="flex min-h-11 items-center gap-3"
         ><Checkbox
           :model-value="patch.selected"

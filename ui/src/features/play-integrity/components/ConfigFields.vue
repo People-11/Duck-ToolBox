@@ -64,7 +64,7 @@ function add() {
             :model-value="entries[key] || 'inherit'"
             @update:model-value="$event === 'inherit' ? remove(key) : set(key, String($event))"
           >
-            <SelectTrigger :id="`pif-${key}`" class="w-36 max-w-full shrink-0"><SelectValue /></SelectTrigger>
+            <SelectTrigger :id="`pif-${key}`" class="w-36 shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="inherit">{{
                 t(key === "spoofSignature" ? "editing.defaultOff" : "editing.defaultOn")
