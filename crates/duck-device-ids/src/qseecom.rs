@@ -39,6 +39,8 @@ type SendCmd =
     unsafe extern "C" fn(*mut QseeComHandle, *mut c_void, u32, *mut c_void, u32) -> c_int;
 type ShutdownApp = unsafe extern "C" fn(*mut *mut QseeComHandle) -> c_int;
 
+use crate::SessionInfo;
+
 #[derive(Debug, Clone, Copy)]
 struct KmVersion {
     ta_api_major: u32,

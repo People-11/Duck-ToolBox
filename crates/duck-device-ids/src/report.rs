@@ -13,8 +13,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub(crate) struct Report {
-    path: PathBuf,
+use crate::{DeviceIdsProfile, ProvisionedId, SessionInfo};
+
+#[derive(Debug, Serialize)]
+struct DeviceIdsReport<'a> {
+    profile: &'a DeviceIdsProfile,
+    ids: &'a [ProvisionedId],
+    dry_run: bool,
+    loaded_library: &'a Option<String>,
+    ta_api_version: &'a Option<String>,
+    ta_version: &'a Option<String>,
+    response_hex: &'a Option<String>,
+    command_hex: String,
 }
 
 impl Report {
