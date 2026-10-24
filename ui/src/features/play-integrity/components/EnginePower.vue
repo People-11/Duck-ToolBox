@@ -64,7 +64,7 @@ async function toggle(enabled: boolean) {
 </script>
 <template>
   <!-- Keep the independent emergency stop available even when the config/status queries fail. -->
-  <section v-if="stopOnly" class="flex flex-col items-start">
+  <section v-if="stopOnly" class="bg-card flex min-w-0 flex-col items-start rounded-lg p-4">
     <Button variant="outline" :disabled="stopping" @click="stop">
       <Power />{{ t(power.data.value?.cleanup_pending ? "retryCleanup" : "disableNow") }}
     </Button>
@@ -101,7 +101,7 @@ async function toggle(enabled: boolean) {
           @update:model-value="toggle"
         />
       </Field>
-      <Button class="mt-3" variant="outline" :disabled="stopping" @click="stop"
+      <Button class="mt-4" variant="outline" :disabled="stopping" @click="stop"
         ><Power />{{ t(power.data.value?.cleanup_pending ? "retryCleanup" : "disableNow") }}</Button
       >
       <p class="text-muted-foreground mt-3 text-xs">{{ t("denylistRestoreHelp") }}</p>

@@ -49,7 +49,12 @@ function add() {
     <IdentityFields v-model="entries" />
     <SettingDetails :title="t('editing.advanced')">
       <div class="flex flex-col gap-5">
-        <Field v-for="key in flags" :key="key" orientation="horizontal">
+        <Field
+          v-for="key in flags"
+          :key="key"
+          orientation="horizontal"
+          class="flex-wrap rounded-xl bg-muted/40 p-3"
+        >
           <FieldContent>
             <FieldLabel :for="`pif-${key}`">{{ t(`editing.${key}`) }}</FieldLabel>
             <span class="text-muted-foreground font-mono text-xs">{{ key }}</span>
@@ -59,7 +64,7 @@ function add() {
             :model-value="entries[key] || 'inherit'"
             @update:model-value="$event === 'inherit' ? remove(key) : set(key, String($event))"
           >
-            <SelectTrigger :id="`pif-${key}`" class="w-36 shrink-0"><SelectValue /></SelectTrigger>
+            <SelectTrigger :id="`pif-${key}`" class="w-36 max-w-full shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="inherit">{{
                 t(key === "spoofSignature" ? "editing.defaultOff" : "editing.defaultOn")
@@ -108,11 +113,11 @@ function add() {
       </div>
       <Field>
         <FieldLabel for="pif-new-field">{{ t("customField") }}</FieldLabel>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <Input
             id="pif-new-field"
             v-model="name"
-            class="min-w-0 font-mono"
+            class="min-w-40 flex-1 font-mono"
             autocapitalize="off"
             spellcheck="false"
             @keydown.enter.prevent="add"

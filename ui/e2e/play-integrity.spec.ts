@@ -228,3 +228,34 @@ test("retains uncommitted edits during tab changes", async ({ page, open }) => {
   await page.getByRole("link", { name: "Configuration", exact: true }).click()
   await expect(content).toHaveValue(draft)
 })
+
+test("aligns Play Integrity panels on mobile without page-level horizontal overflow", async ({
+  page,
+  open,
+}) => {
+  await page.setViewportSize({ width: 360, height: 780 })
+  await open("/play-integrity")
+  const nav = page.getByRole("navigation", { name: "Play Integrity" })
+  const navLeft = await nav.evaluate((element) => element.getBoundingClientRect().left)
+  const panelLeft = await page
+    .getByRole("heading", { name: "Status", exact: true })
+    .locator("xpath=ancestor::section[1]")
+    .evaluate((element) => element.getBoundingClientRect().left)
+  expect(Math.abs(navLeft - panelLeft)).toBeLessThanOrEqual(1)
+
+  await nav.getByRole("link", { name: "Configuration", exact: true }).click()
+  const stopLeft = await page
+    .getByRole("button", { name: "Disable PIF now", exact: true })
+    .locator("xpath=ancestor::section[1]")
+    .evaluate((element) => element.getBoundingClientRect().left)
+  expect(Math.abs(navLeft - stopLeft)).toBeLessThanOrEqual(1)
+
+  await nav.getByRole("link", { name: "Licenses", exact: true }).click()
+  await expect(nav.getByRole("link", { name: "Licenses", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  )
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+  ).toBe(true)
+})

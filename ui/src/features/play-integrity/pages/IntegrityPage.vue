@@ -127,23 +127,25 @@ async function importFile(event: Event) {
 }
 </script>
 <template>
-  <div class="flex min-h-full flex-col">
-    <nav ref="tabNav" :aria-label="t('meta.title')" class="flex gap-1 overflow-x-auto px-4 py-2">
+  <div class="mx-auto flex min-h-full w-full max-w-4xl flex-col">
+    <nav ref="tabNav" :aria-label="t('meta.title')" class="mx-4 mt-4 flex min-w-0 gap-1 overflow-x-auto rounded-2xl bg-muted/70 p-1.5">
       <RouterLink
         v-for="tab in tabs"
         :key="tab"
         replace
         :to="tab === 'status' ? '/play-integrity' : `/play-integrity/${tab}`"
-        class="state-layer relative focus-visible:ring-ring/50 inline-flex min-h-12 shrink-0 items-center rounded-xl px-4 text-sm font-medium outline-none transition-colors focus-visible:ring-3"
+        class="state-layer focus-visible:ring-ring/50 relative inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-medium whitespace-nowrap outline-none transition-[color,background-color,box-shadow] focus-visible:ring-3"
         :class="
-          section === tab ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground'
+          section === tab
+            ? 'bg-card text-foreground shadow-sm ring-1 ring-border/60'
+            : 'text-muted-foreground hover:text-foreground'
         "
         :aria-current="section === tab ? 'page' : undefined"
         >{{ t(`nav.${tab}`) }}</RouterLink
       >
     </nav>
-    <EnginePower :stop-only="section !== 'status'" class="px-4 pt-4" />
-    <fieldset :disabled="s.busy.value" class="flex min-w-0 flex-1 flex-col gap-6 p-4">
+    <EnginePower :stop-only="section !== 'status'" class="px-4 pt-5" />
+    <fieldset :disabled="s.busy.value" class="flex min-w-0 flex-1 flex-col gap-5 px-4 pt-5 pb-6">
       <RecoveryNotice />
       <QueryState
         :loading="s.status.isPending.value"
@@ -156,19 +158,19 @@ async function importFile(event: Event) {
           :title="t('nav.status')"
           :description="t('limits')"
         >
-          <p class="text-lg font-semibold">
+          <p role="status" aria-live="polite" class="bg-muted/70 rounded-xl px-4 py-3 text-xl leading-7 font-semibold break-words">
             {{
               s.status.data.value
                 ? global.t(`playIntegrity.states.${s.status.data.value.state}`)
                 : "—"
             }}
           </p>
-          <p class="text-muted-foreground mt-2 text-sm">{{ t("activationHelp") }}</p>
+          <p class="text-muted-foreground mt-4 text-sm leading-6">{{ t("activationHelp") }}</p>
           <p v-if="data?.reboot_required" class="mt-2 text-sm">{{ t("reboot") }}</p>
           <p v-if="data?.conflicts.length" class="text-destructive mt-2 text-sm">
             {{ data.conflicts.join(", ") }}
           </p>
-          <Button variant="ghost" :disabled="s.busy.value" @click="s.refresh()"
+          <Button variant="outline" class="mt-4" :disabled="s.busy.value" @click="s.refresh()"
             ><RefreshCw />{{ global.t("core.actions.refresh") }}</Button
           >
         </SectionCard>
@@ -209,10 +211,10 @@ async function importFile(event: Event) {
               v-else
               v-model="s.content.value"
               :aria-label="t('nav.config')"
-              class="min-h-72 font-mono text-sm"
+              class="min-h-72 w-full min-w-0 font-mono text-sm"
               spellcheck="false"
             />
-            <div class="mt-3 flex flex-wrap gap-2">
+            <div class="mt-4 flex flex-wrap gap-2">
               <Button :disabled="s.busy.value" @click="s.previewContent(false)">{{
                 t("preview")
               }}</Button>
@@ -244,8 +246,8 @@ async function importFile(event: Event) {
                 @change="importFile"
               />
               <div class="mt-4 flex flex-col gap-2">
-                <Input v-model="source" :aria-label="t('deviceFile')" />
-                <div class="flex gap-2">
+                <Input v-model="source" :aria-label="t('deviceFile')" class="min-w-0 font-mono text-xs" />
+                <div class="flex flex-wrap gap-2">
                   <Button variant="outline" @click="picker = true">{{
                     global.t("core.actions.browse")
                   }}</Button
@@ -276,10 +278,10 @@ async function importFile(event: Event) {
           :title="t('nav.generate')"
           :description="t('generateHelp')"
         >
-          <p class="bg-muted mb-4 rounded-xl p-3 text-sm">{{ t("guide.canary") }}</p>
+          <p class="bg-muted/70 mb-3 rounded-xl p-4 text-sm leading-6">{{ t("guide.canary") }}</p>
           <RouterLink
             to="/play-integrity/config"
-            class="text-primary mb-4 inline-flex min-h-11 items-center text-sm underline underline-offset-4"
+            class="text-primary mb-4 inline-flex min-h-11 items-center text-sm underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             >{{ t("guide.import") }}</RouterLink
           >
           <SettingDetails :title="t('editing.advanced')">
@@ -296,7 +298,7 @@ async function importFile(event: Event) {
               /></Field>
             </div>
           </SettingDetails>
-          <div class="mt-3 flex gap-2">
+          <div class="mt-4 flex flex-wrap gap-2">
             <Button
               :disabled="s.busy.value || !!s.taskId.value || data?.options.enabled === false"
               @click="s.generate(strong, match)"
@@ -321,7 +323,7 @@ async function importFile(event: Event) {
           </p>
           <pre
             v-if="s.task.value?.output"
-            class="bg-muted mt-3 max-h-72 overflow-auto rounded-xl p-3 text-xs whitespace-pre-wrap"
+            class="bg-muted/70 mt-3 max-h-72 overflow-auto rounded-xl p-4 font-mono text-xs whitespace-pre-wrap"
             >{{ s.task.value.output }}</pre>
         </SectionCard>
         <SectionCard
@@ -357,7 +359,7 @@ async function importFile(event: Event) {
             <p class="text-muted-foreground text-sm">{{ t("denylistHelp") }}</p>
             <p class="text-muted-foreground text-sm">{{ t("selinuxHelp") }}</p>
           </div>
-          <p class="text-muted-foreground mt-3 text-sm">{{ t("replaceHelp") }}</p>
+          <p class="text-muted-foreground mt-5 text-sm leading-6">{{ t("replaceHelp") }}</p>
           <label class="mt-3 block text-sm"
             >{{ t("replaceList")
             }}<Textarea
@@ -382,7 +384,7 @@ async function importFile(event: Event) {
               }}</Button>
             </div>
             <pre
-              class="bg-muted mt-3 max-h-[60vh] overflow-auto rounded-xl p-3 text-xs whitespace-pre-wrap"
+              class="bg-muted/70 mt-4 max-h-[60vh] overflow-auto rounded-xl p-4 font-mono text-xs whitespace-pre-wrap"
               >{{ s.log.value || "—" }}</pre>
           </SettingDetails>
         </SectionCard>

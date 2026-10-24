@@ -35,9 +35,9 @@ const { t } = useIntegrityI18n()
         >
       </p>
     </div>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto rounded-xl border border-border/70">
       <table class="w-full text-start text-xs">
-        <thead>
+        <thead class="bg-muted/60">
           <tr>
             <th class="p-2 text-start">{{ t("field") }}</th>
             <th class="p-2 text-start">{{ t("before") }}</th>
@@ -53,7 +53,7 @@ const { t } = useIntegrityI18n()
         </tbody>
       </table>
     </div>
-    <div v-for="patch in patches" :key="patch.target.id" class="mt-4 rounded-xl border p-3">
+    <div v-for="patch in patches" :key="patch.target.id" class="mt-4 rounded-xl border border-border/70 bg-muted/20 p-4">
       <label class="flex min-h-11 items-center gap-3"
         ><Checkbox
           :model-value="patch.selected"
@@ -68,7 +68,7 @@ const { t } = useIntegrityI18n()
         {{ change.key }}: {{ change.before ?? "—" }} → {{ change.after }}
       </p>
     </div>
-    <div class="mt-4 flex gap-2">
+    <div class="mt-4 flex flex-wrap gap-2">
       <Button :disabled="busy" @click="emit('apply')">{{ t("apply") }}</Button
       ><Button variant="outline" :disabled="busy" @click="emit('close')">{{ t("dismiss") }}</Button>
     </div>

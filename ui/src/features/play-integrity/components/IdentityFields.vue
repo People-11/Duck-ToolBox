@@ -38,7 +38,7 @@ function set(key: string, value: string) {
 <template>
   <div class="flex flex-col gap-5">
     <div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <Button variant="secondary" @click="sync()">{{ t("editing.sync") }}</Button>
         <Button
           variant="ghost"
@@ -62,7 +62,7 @@ function set(key: string, value: string) {
           <div
             v-for="[field, property] in pairs"
             :key="field"
-            class="grid min-w-0 gap-3 rounded-xl border p-3"
+            class="grid min-w-0 gap-4 rounded-xl border border-border/70 bg-muted/30 p-4"
             :class="showProperties ? 'sm:grid-cols-2' : ''"
           >
             <Field>
