@@ -89,6 +89,7 @@
     "verboseLogs": "Niveau 0–100 ; 100 inclut toutes les lectures de propriétés observées."
   },
   "warnings": {
+    "patch_scope": "Les dates de correctif configurées diffèrent selon les partitions. La mise à jour avec une date unique est ignorée ; la configuration est conservée.",
     "missing_api": "API initiale non définie ; aucune valeur SDK universelle n’est supposée.",
     "mismatch": "Build et la propriété correspondante ont des valeurs explicites différentes.",
     "provider": "La compatibilité Provider bloque les chaînes de certificats. Vérifiez si elle est nécessaire.",

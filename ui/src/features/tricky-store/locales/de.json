@@ -10,7 +10,7 @@
     "active": "Aktiv",
     "inactive": "Deaktiviert",
     "disabled": "{name} ist in deinem Root-Manager deaktiviert. Änderungen werden gespeichert und gelten, sobald du es aktivierst und neu startest.",
-    "configError": "Die aktuelle Konfiguration konnte nicht gelesen werden und wird beim Speichern ersetzt: {error}",
+    "configError": "Die aktuelle Konfiguration konnte nicht gelesen werden; Speichern ist gesperrt: {error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store (alte Version)",

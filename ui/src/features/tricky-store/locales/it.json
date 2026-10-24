@@ -10,7 +10,7 @@
     "active": "Attivo",
     "inactive": "Disattivato",
     "disabled": "{name} è disattivato nel gestore root. Le modifiche vengono salvate e avranno effetto quando lo attivi e riavvii.",
-    "configError": "Impossibile leggere la configurazione attuale, che verrà sostituita al salvataggio: {error}",
+    "configError": "Impossibile leggere la configurazione attuale; salvataggio bloccato: {error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store (vecchia versione)",

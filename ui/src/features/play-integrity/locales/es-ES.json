@@ -89,6 +89,7 @@
     "verboseLogs": "Nivel 0–100; 100 incluye todas las lecturas de propiedades observadas."
   },
   "warnings": {
+    "patch_scope": "Las fechas de parche configuradas por partición son distintas. Se omite la actualización con una sola fecha y se conserva la configuración.",
     "missing_api": "API inicial sin definir; no se presupone ningún valor SDK universal.",
     "mismatch": "Build y su propiedad correspondiente tienen valores explícitos diferentes.",
     "provider": "La compatibilidad Provider bloquea cadenas de certificados. Comprueba si es necesaria.",

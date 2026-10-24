@@ -89,6 +89,7 @@
     "verboseLogs": "日志级别 0–100；100 包含所有观察到的属性读取。"
   },
   "warnings": {
+    "patch_scope": "配置中的分区补丁日期不同，已跳过统一日期联动；保留现有配置。",
     "missing_api": "首发 API 未设置；不会假定某个 SDK 值普遍适用。",
     "mismatch": "Build 字段与对应系统属性设置了不同值。",
     "provider": "Provider 兼容会阻止证书链请求，请确认当前方案是否需要。",

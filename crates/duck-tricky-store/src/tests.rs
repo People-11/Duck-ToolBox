@@ -64,6 +64,7 @@ fn tricky_store_ini_round_trips_targets_and_modes() {
         &fixture.ctx,
         SaveRequest {
             expected_config: None,
+            expected_backend: None,
             targets: vec![
                 TargetEntry {
                     package_name: "com.google.android.gms".into(),
@@ -305,4 +306,91 @@ fn stale_editor_cannot_undo_a_competing_patch_or_hash_change() {
     .unwrap_err();
     assert!(error.to_string().contains("configuration changed"));
     assert_eq!(fs::read_to_string(path).unwrap(), changed);
+}
+
+#[test]
+fn corrupt_state_does_not_publish_a_new_backend_configuration() {
+    let fixture = fixture("save-corrupt-state");
+    install_backend(&fixture.ctx.sysroot, "tricky_store", 246);
+    let path = config_path(&fixture, "/data/adb/tricky_store/config.ini");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, "[target]\ncom.original\n").unwrap();
+    let state = crate::state::State::path(&fixture.ctx.paths);
+    fs::create_dir_all(state.parent().unwrap()).unwrap();
+    fs::write(&state, "[broken").unwrap();
+    assert!(save(&fixture.ctx, SaveRequest::default()).is_err());
+    assert_eq!(
+        fs::read_to_string(path).unwrap(),
+        "[target]\ncom.original\n"
+    );
+    assert_eq!(fs::read_to_string(state).unwrap(), "[broken");
+}
+
+#[test]
+fn ordinary_save_rolls_back_a_partial_omk_publication() {
+    let fixture = fixture("save-partial-omk");
+    install_backend(&fixture.ctx.sysroot, "oh_my_keymint", 165);
+    let path = config_path(&fixture, "/data/misc/keystore/omk/injector.toml");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let original = "# untouched\nscoop = [\"com.original\"]\n";
+    fs::write(&path, original).unwrap();
+    let error = save(
+        &fixture.ctx,
+        SaveRequest {
+            default_policy: [("vb_hash".into(), "ab".repeat(32))].into(),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("original configuration files restored")
+    );
+    assert_eq!(fs::read_to_string(path).unwrap(), original);
+    assert!(!crate::state::State::path(&fixture.ctx.paths).exists());
+}
+
+#[test]
+fn ordinary_save_preserves_unmanaged_default_and_per_app_policy_fields() {
+    let fixture = fixture("save-extensions");
+    install_backend(&fixture.ctx.sysroot, "tricky_store", 246);
+    let path = config_path(&fixture, "/data/adb/tricky_store/config.ini");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, "[default_policy]\nos_patch = prop\nfuture_flag = keep\n[target]\ncom.keep\n[com.keep]\nboot_patch = 20261005\nfuture_leaf = opaque\n").unwrap();
+    let result = save(
+        &fixture.ctx,
+        SaveRequest {
+            targets: vec![TargetEntry {
+                package_name: "com.keep".into(),
+                mode: TargetMode::Auto,
+            }],
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(result.config.default_policy["future_flag"], "keep");
+    assert!(!result.config.default_policy.contains_key("os_patch"));
+    assert_eq!(
+        result.config.per_app_policy["com.keep"]["future_leaf"],
+        "opaque"
+    );
+    assert!(!result.config.per_app_policy["com.keep"].contains_key("boot_patch"));
+}
+
+#[test]
+fn expected_backend_guards_identical_configurations_after_switching_modules() {
+    let fixture = fixture("save-backend-change");
+    install_backend(&fixture.ctx.sysroot, "oh_my_keymint", 165);
+    let error = save(
+        &fixture.ctx,
+        SaveRequest {
+            expected_backend: Some(Backend::TrickyStore),
+            expected_config: Some(Default::default()),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("backend changed"));
+    assert!(!config_path(&fixture, "/data/misc/keystore/omk/injector.toml").exists());
 }

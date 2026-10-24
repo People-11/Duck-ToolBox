@@ -144,5 +144,17 @@ pif_running
 if pif_running; then exit 1; fi
 ''',root)
 
+    (root / "disabled").unlink()
+    (root / "enabled-token").unlink()
+    (root / "module").mkdir(exist_ok=True)
+    for flag in ["disable", "remove"]:
+        path = root / "module" / flag
+        path.touch()
+        run('''
+. "$PIF_ENGINE_SCRIPTS/power.sh"
+if pif_running; then exit 1; fi
+''', root)
+        path.unlink()
+
 
 print("Shell restoration, shutdown gate, ROM path guards and OEM ordering passed")

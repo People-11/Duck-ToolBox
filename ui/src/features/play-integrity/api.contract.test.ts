@@ -20,6 +20,16 @@ describe.skipIf(!hasDuckd || !existsSync(engine))(
   "Play Integrity adapter against the standalone engine",
   CONTRACT,
   () => {
+    it("retains independent partition dates and skips a single-date keystore update", async () => {
+      host = installHost()
+      const content = "SECURITY_PATCH=2026-10-05\nro.vendor.build.security_patch=2026-09-05"
+      const preview = await integrityApi.preview(content)
+      expect(preview.suggested_patch).toBeNull()
+      expect(preview.warnings.some((warning) => warning.code === "patch_scope")).toBe(true)
+      expect(preview.entries["ro.vendor.build.security_patch"]).toBe("2026-09-05")
+      const buildOnly = await integrityApi.preview(`${content}\nspoofProps=0`)
+      expect(buildOnly.suggested_patch).toBe("2026-10-05")
+    })
     it("stores snapshots and manual results through the engine without applying or enabling", async () => {
       host = installHost()
       await integrityApi.disable()

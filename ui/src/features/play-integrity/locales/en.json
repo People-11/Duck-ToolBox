@@ -89,6 +89,7 @@
     "verboseLogs": "Logging level 0–100; 100 includes all observed property reads."
   },
   "warnings": {
+    "patch_scope": "Configured partition patch dates differ. A single-date keystore update is skipped; your configuration is retained.",
     "missing_api": "First API level is unset; no universal SDK value is assumed.",
     "mismatch": "Build and the matching system property have different explicit values.",
     "provider": "Provider compatibility blocks certificate-chain requests; verify whether your setup needs it.",

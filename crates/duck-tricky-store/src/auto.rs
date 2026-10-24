@@ -47,7 +47,7 @@ pub fn apply(ctx: &Context) -> Result<AutoApplyData> {
         });
     }
 
-    let (detection, adapter) = active_adapter(&ctx.sysroot)?;
+    let (_, adapter) = active_adapter(&ctx.sysroot)?;
     let mut config = adapter.read(&ctx.sysroot)?;
     let known: std::collections::BTreeSet<&str> = state
         .auto
@@ -72,13 +72,15 @@ pub fn apply(ctx: &Context) -> Result<AutoApplyData> {
         }
     }
 
-    if !added.is_empty() {
-        let _ = detection;
-        adapter.write(&ctx.sysroot, &config)?;
-    }
-
     state.auto.known_user_apps = user_packages;
-    state.save(&ctx.paths)?;
+    let mut paths = crate::config_update::paths(ctx, adapter.as_ref());
+    paths.push(State::path(&ctx.paths));
+    crate::config_update::apply(&paths, || {
+        if !added.is_empty() {
+            adapter.write(&ctx.sysroot, &config)?;
+        }
+        state.save(&ctx.paths)
+    })?;
 
     Ok(AutoApplyData {
         enabled: true,

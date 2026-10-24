@@ -81,6 +81,7 @@ const savedSchema = z.object({
 export type Saved = z.infer<typeof savedSchema>
 
 export interface SaveRequest {
+  expected_backend?: NonNullable<Status["active"]>["backend"]
   expected_config?: Status["config"]
   targets: Target[]
   default_policy: Policy

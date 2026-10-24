@@ -10,7 +10,7 @@
     "active": "사용 중",
     "inactive": "비활성화됨",
     "disabled": "루트 관리자에서 {name} 모듈이 비활성화되어 있습니다. 변경사항은 저장되며, 모듈을 활성화하고 재부팅하면 적용됩니다.",
-    "configError": "현재 설정을 읽을 수 없어 저장하면 기존 설정을 덮어씁니다: {error}",
+    "configError": "현재 구성을 읽을 수 없어 저장이 차단되었습니다: {error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store(구버전)",

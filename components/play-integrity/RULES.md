@@ -72,6 +72,7 @@ Android 13 及以上的 Basic 要求证明的 root of trust 由 Google 提供；
 - Prop Setting 接受 AVB 的 SHA-256／SHA-512 十六进制摘要；OMK 的 `vb_hash` 固定为 32 字节，
   不兼容的摘要在写入共享开关、hash 文件或策略前拒绝。只有 hash 实际改变时才同步 backend policy，
   单独切换 handler 保留已有独立 `vb_hash`。已有 AVB 元数据不覆盖；缺失的算法默认值按摘要长度选择。
+- 普通保存与自动加名单先读取及校验模块状态，再与后端配置一起发布；I/O 失败恢复受影响文件。普通保存保留未知的默认／逐应用策略键，旧页面同时校验后端身份和配置。
 - Prop Setting 先读取全部受影响文件，后端与共享配置发布失败时恢复原内容；实时属性在配置文件成功发布后设置。
   清空 hash 只停止后续覆盖，已应用的属性需重启清除；handler 变更及 OMK 重启字段变更在保存结果中报告重启需求。
   文件恢复覆盖普通 I/O 失败，不构成跨文件掉电原子性保证。
@@ -79,9 +80,12 @@ Android 13 及以上的 Basic 要求证明的 root of trust 由 Google 提供；
   不等待 fork 子进程的临时文件描述符副本关闭。该锁不协调第三方工具；编辑器提交读取时的配置作为乐观并发检查，
   防止旧页面覆盖本项目另一入口或第三方已经完成的策略变更。Prop Setting 同样提交读取时的共享开关与 hash，
   拒绝旧表单覆盖外部已保存的设置。保存返回适配器实际读回配置，保留各后端的规范化语义。
+- 属性表单以实际载入的状态作为编辑基线，后台刷新不改变未保存编辑及其预期值；显式刷新重新载入已保存状态。策略表单也保留未保存编辑。
 - PI 的补丁建议按启用的 Build／属性 hook 计算，属性优先级与原生 hook 一致：精确键先于前导 `*` 后缀规则。
   明确冲突、空 Build 值、全部关闭及无效日历日期均不建议自动联动；保留原配置，冲突通过预览提示。
+  配置中的 `ro.vendor.build.security_patch`／`ro.vendor.boot_security_patch` 与系统补丁日期不同（包括匹配的通配符）时，跳过统一日期联动并提示，保留配置。
   keystore 的 per-app policy 仍优先于 default policy；默认策略联动不覆盖 per-app policy 或不识别的扩展键。
+- CLI、Shell 与原生 companion 均遵守模块 disable/remove 标记；这些标记停止接管但不写入 PI 的独立停用令牌。原生 companion 也拒绝非法类型的兼容布尔选项，与 CLI 校验一致。
 - SELinux 的属性文本和文件权限不等于内核 enforcing 状态；不会为修复检测提示而切换内核 SELinux 状态。
 
 补充核对源码：
@@ -91,6 +95,7 @@ Android 13 及以上的 Basic 要求证明的 root of trust 由 Google 提供；
 - [PIF 23ec56c：OEM 属性延后时序](https://github.com/osm0sis/PlayIntegrityFork/blob/23ec56c2440c4fd1a5e893a23ef7861d6366a828/module/service.sh)。
 - [Tricky Addon cf167849：共享属性设置](https://github.com/KOWX712/Tricky-Addon-Update-Target-List/blob/cf167849aaa7696972a3c7826ec94294e9e47fce/webui/src/dialog/prop.ts)及 [prop.sh](https://github.com/KOWX712/Tricky-Addon-Update-Target-List/blob/cf167849aaa7696972a3c7826ec94294e9e47fce/module/prop.sh)。
 - [OMK b12557c：32-byte trust 值及运行时重载](https://github.com/qwq233/OhMyKeymint/blob/b12557c1569ed15150acd7886c825de500fc9ee9/src/config.rs)，对应 [构建制品 12147111988](https://github.com/qwq233/OhMyKeymint/actions/runs/39155552658/artifacts/12147111988)。
+- [OMK b12557c：分区补丁解析及系统属性同步](https://github.com/qwq233/OhMyKeymint/blob/b12557c1569ed15150acd7886c825de500fc9ee9/src/plat/vbmeta.rs)：system、vendor、boot 分别解析；非 auto 的 security_patch 在需要时写入全局系统属性，不表示实际系统更新。
 - [WebUI X Portable ff81674c：KernelSU 兼容 spawn 回调](https://github.com/MMRLApp/WebUI-X-Portable/blob/ff81674ce61b1d7a4cfcdb29736ec022968fc651/app/src/main/java/com/dergoogler/mmrl/wx/ui/webui/interfaces/ksu/KernelSUInterface.kt)：先发送输出，再报告 exit，非零退出随后报告 error；共用桥接保持该协议，不因失败重试写操作。
 
 ## 可复现验证与限制

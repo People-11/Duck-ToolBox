@@ -10,7 +10,7 @@
     "active": "Activo",
     "inactive": "Desactivado",
     "disabled": "{name} está desactivado en tu gestor de root. Los cambios se guardan y se aplicarán cuando lo actives y reinicies.",
-    "configError": "No se ha podido leer la configuración actual, así que se sustituirá al guardar: {error}",
+    "configError": "No se pudo leer la configuración actual; se ha bloqueado el guardado: {error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store (antiguo)",

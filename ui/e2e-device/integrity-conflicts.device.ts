@@ -62,6 +62,10 @@ test("@oh_my_keymint saves prop settings through the native WebUI bridge", async
     await page.getByRole("button", { name: "Save", exact: true }).click()
     await expect(page.getByText(/prop settings changed/)).toBeVisible()
     expect((await device.shell("cat /data/adb/boot_hash")).trim()).toBe("12".repeat(32))
+    await page.getByRole("button", { name: "Refresh", exact: true }).click()
+    await expect(hash).toHaveValue("12".repeat(32))
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+    await expect(page.getByText("Verified Boot Hash saved successfully").last()).toBeVisible()
   } finally {
     await request("tricky-store props", original.props)
     const current = await request("tricky-store status")

@@ -14,19 +14,23 @@ import PolicyEditor from "../components/PolicyEditor.vue"
 import { useTrickyI18n } from "../i18n"
 import { STATUS_KEY, useStatusQuery } from "../queries"
 import { useTrickyStore } from "../store"
+import { samePolicy } from "../selection"
 
 const { t } = useTrickyI18n()
 const store = useTrickyStore()
 const status = useStatusQuery()
 const client = useQueryClient()
 const policy = ref<Policy>({})
+let baseline: Policy | undefined
 
 watch(
   status.data,
   (next) => {
     if (!next) return
+    if (baseline && !samePolicy(policy.value, baseline)) return
     store.load(next)
     policy.value = { ...next.config.default_policy }
+    baseline = { ...next.config.default_policy }
   },
   { immediate: true },
 )
@@ -38,8 +42,11 @@ const save = useMutation({
     client.setQueryData(STATUS_KEY, store.status)
     return saved
   },
-  onSuccess: (saved) =>
-    notifySuccess(t("policy.saved"), saved.restart_required ? t("policy.restart") : undefined),
+  onSuccess: (saved) => {
+    policy.value = { ...(saved.config?.default_policy ?? policy.value) }
+    baseline = { ...policy.value }
+    notifySuccess(t("policy.saved"), saved.restart_required ? t("policy.restart") : undefined)
+  },
 })
 </script>
 

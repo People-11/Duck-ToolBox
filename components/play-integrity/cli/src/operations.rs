@@ -133,8 +133,12 @@ fn compatibility(engine: &Engine) -> Result<Value> {
         json!({"replacement_hash":files::hash(replacement_list(engine)?.as_bytes()),"prop_handler_enabled":!engine.device("/data/adb/disable_prop_handler").exists()}),
     )
 }
+fn module_enabled(engine: &Engine) -> bool {
+    let root = engine.module.parent().unwrap_or(&engine.module);
+    !root.join("disable").exists() && !root.join("remove").exists()
+}
 pub fn active(engine: &Engine) -> Result<bool> {
-    if crate::power::disabled(engine) {
+    if !module_enabled(engine) || crate::power::disabled(engine) {
         return Ok(false);
     }
     let opts = options(engine)?;
@@ -176,7 +180,7 @@ pub fn status(engine: &Engine) -> Result<Value> {
     Ok(
         json!({"api":1,"upstream_revision":UPSTREAM,"options":opts,"has_config":has_config,"lifecycle_eligible":runtime_active,"zygisk_detected":zygisk,
         "conflicts":conflict,"reboot_required":reboot,"attachment":evidence,"boot":loaded,
-        "state":if !opts["enabled"].as_bool().unwrap_or(true){"disabled"}else if !conflict.is_empty(){"conflict"}else if opts["mode"]=="scripts-only"{"scripts-only"}else if !has_config{"configuration-required"}else if !zygisk{"zygisk-unconfirmed"}else{"configured"},
+        "state":if !module_enabled(engine) || !opts["enabled"].as_bool().unwrap_or(true){"disabled"}else if !conflict.is_empty(){"conflict"}else if opts["mode"]=="scripts-only"{"scripts-only"}else if !has_config{"configuration-required"}else if !zygisk{"zygisk-unconfirmed"}else{"configured"},
         "app_replace_list":if engine.data.join("custom.app_replace_list.txt").exists(){files::read(&engine.data.join("custom.app_replace_list.txt"))?}else{files::read(&engine.module.join("scripts/app_replace_list.txt"))?},"data_dir":engine.data,"source":"licenses/play-integrity/SOURCE.txt","license":"licenses/play-integrity/GPL-3.0.txt","verdict_verified":false}),
     )
 }
@@ -396,6 +400,37 @@ pub fn stage(engine: &Engine, phase: &str) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn root_manager_flags_release_scripts_without_changing_saved_enable_intent() {
+        let temporary = tempfile::tempdir().unwrap();
+        let engine = Engine {
+            data: temporary.path().join("data"),
+            module: temporary.path().join("module/play-integrity"),
+            sysroot: temporary.path().join("sys"),
+        };
+        files::atomic(
+            &engine.module.join("scripts/stage.sh"),
+            b"printf '%s' \"$1\"\n",
+        )
+        .unwrap();
+        files::atomic(
+            &engine.data.join("custom.pif.json"),
+            br#"{"MODEL":"Fixture"}"#,
+        )
+        .unwrap();
+        assert!(active(&engine).unwrap());
+        for flag in ["disable", "remove"] {
+            let path = engine.module.parent().unwrap().join(flag);
+            files::atomic(&path, b"").unwrap();
+            assert!(!active(&engine).unwrap());
+            assert_eq!(stage(&engine, "early").unwrap()["output"], "cleanup");
+            assert_eq!(stage(&engine, "late").unwrap()["skipped"], true);
+            assert_eq!(options(&engine).unwrap()["enabled"], true);
+            assert!(!engine.data.join("disabled").exists());
+            fs::remove_file(path).unwrap();
+            assert!(active(&engine).unwrap());
+        }
+    }
     #[test]
     fn lifecycle_requires_config_but_preserves_explicit_scripts_mode() {
         let root = tempfile::tempdir().unwrap();

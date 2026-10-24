@@ -24,6 +24,7 @@ export const useTrickyStore = defineStore("tricky-store", () => {
   const draft = ref<Draft | null>(null)
   const saving = ref(false)
   let expectedConfig: Status["config"] | undefined
+  let expectedBackend: SaveRequest["expected_backend"]
 
   const baseline = computed(() => (status.value ? draftFromStatus(status.value) : null))
   const dirty = computed(
@@ -39,6 +40,7 @@ export const useTrickyStore = defineStore("tricky-store", () => {
     if (!keep || !draft.value) {
       draft.value = draftFromStatus(next)
       expectedConfig = structuredClone(next.config)
+      expectedBackend = next.active?.backend
     }
   }
 
@@ -73,7 +75,11 @@ export const useTrickyStore = defineStore("tricky-store", () => {
       throw new DuckError("operation_pending", "A save is already running", "tricky-store.save")
     saving.value = true
     try {
-      const result = await trickyStoreApi.save({ ...request, expected_config: expectedConfig })
+      const result = await trickyStoreApi.save({
+        ...request,
+        expected_config: expectedConfig,
+        expected_backend: expectedBackend,
+      })
       expectedConfig = result.config ?? {
         targets: request.targets,
         default_policy: request.default_policy,

@@ -70,6 +70,9 @@ static bool active() {
     if (bytes.empty()) return access(PIF_DATA_DIR "/options.json", F_OK) != 0;
     const auto opts = nlohmann::json::parse(bytes.begin(), bytes.end(), nullptr, false);
     if (!opts.is_object()) return false;
+    for (const auto *key : {"skipdelprop", "skippersistprop", "skipmatchdevice"}) {
+        if (opts.contains(key) && !opts[key].is_boolean()) return false;
+    }
     if (opts.contains("enabled") && (!opts["enabled"].is_boolean() || !opts["enabled"].get<bool>())) return false;
     return !opts.contains("mode") || opts["mode"] == "full";
 }

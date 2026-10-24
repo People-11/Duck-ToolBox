@@ -56,6 +56,12 @@ static void gateTests() {
     assert(received());
     write("data/options.json","{\"enabled\":false}"); assert(!received());
     write("data/options.json","{\"enabled\":true}"); assert(received());
+    for (const auto *key : {"skipdelprop", "skippersistprop", "skipmatchdevice"}) {
+        std::ofstream(root / "data/options.json") << "{\"" << key << "\":\"false\"}";
+        assert(!received());
+        std::ofstream(root / "data/options.json") << "{\"" << key << "\":false}";
+        assert(received());
+    }
     write("data/disabled",""); write("data/enabled-token",""); assert(!received());
     write("data/disabled","first-stop"); assert(!received());
     write("data/enabled-token","first-stop"); assert(received());

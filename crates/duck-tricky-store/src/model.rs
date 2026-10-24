@@ -222,6 +222,8 @@ pub struct PropStatus {
 /// Request written by the WebUI's "Save" action.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct SaveRequest {
+    #[serde(default)]
+    pub expected_backend: Option<Backend>,
     /// Configuration the editor read; reject stale writes from another settings page.
     #[serde(default)]
     pub expected_config: Option<ConfigData>,

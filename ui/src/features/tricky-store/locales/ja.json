@@ -10,7 +10,7 @@
     "active": "使用中",
     "inactive": "無効",
     "disabled": "{name} は root マネージャーで無効になっています。変更は保存されますが、適用されるのは有効にして再起動した後です。",
-    "configError": "現在の設定を読み込めないため、保存すると上書きされます：{error}",
+    "configError": "現在の設定を読み取れないため、保存できません：{error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store（旧バージョン）",

@@ -19,7 +19,7 @@ export const previewSchema = configSchema.extend({
   warnings: z
     .array(
       z.object({
-        code: z.enum(["missing_api", "mismatch", "provider", "wildcard", "canary"]),
+        code: z.enum(["missing_api", "mismatch", "provider", "wildcard", "canary", "patch_scope"]),
         fields: z.array(z.string()),
       }),
     )

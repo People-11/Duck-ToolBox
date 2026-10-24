@@ -10,7 +10,7 @@
     "active": "Aktif",
     "inactive": "Dinonaktifkan",
     "disabled": "{name} dinonaktifkan di pengelola root Anda. Perubahan tetap disimpan dan akan diterapkan setelah Anda mengaktifkannya lalu memulai ulang perangkat.",
-    "configError": "Konfigurasi saat ini tidak dapat dibaca, jadi konfigurasi tersebut akan diganti saat Anda menyimpan: {error}",
+    "configError": "Konfigurasi saat ini tidak dapat dibaca; penyimpanan diblokir: {error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store (lama)",

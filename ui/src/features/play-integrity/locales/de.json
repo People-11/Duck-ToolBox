@@ -89,6 +89,7 @@
     "verboseLogs": "Protokollstufe 0–100; 100 enthält alle beobachteten Eigenschaftsabfragen."
   },
   "warnings": {
+    "patch_scope": "Die konfigurierten Patchdaten der Partitionen unterscheiden sich. Eine einheitliche Keystore-Aktualisierung wird übersprungen; die Konfiguration bleibt erhalten.",
     "missing_api": "Erste API nicht gesetzt; es wird kein universeller SDK-Wert angenommen.",
     "mismatch": "Build und zugehörige Systemeigenschaft haben verschiedene explizite Werte.",
     "provider": "Provider-Kompatibilität blockiert Zertifikatsketten. Prüfen Sie, ob dies benötigt wird.",

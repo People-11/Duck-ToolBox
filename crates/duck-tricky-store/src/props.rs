@@ -89,15 +89,11 @@ pub fn save(ctx: &Context, request: PropRequest) -> Result<PropData> {
                 .map(|name| sysroot.path(format!("{}/{name}", adapter.config_dir()))),
         );
     }
-    let before = paths
-        .iter()
-        .map(|path| Ok((path.clone(), duck_core::fs::read_optional(path)?)))
-        .collect::<Result<Vec<_>>>()?;
     let synced_backend_policy = backend.is_some();
     let restart_required = request.prop_handler_enabled != status(sysroot).prop_handler_enabled
         || (boot_hash.is_none() && hash_path.exists())
         || synced_backend_policy;
-    let result = (|| -> Result<bool> {
+    let applied_boot_hash = crate::config_update::apply(&paths, || -> Result<bool> {
         if let Some((adapter, config)) = backend {
             adapter.write(sysroot, &config)?;
         }
@@ -119,33 +115,7 @@ pub fn save(ctx: &Context, request: PropRequest) -> Result<PropData> {
             return Ok(true);
         }
         Ok(false)
-    })();
-    let applied_boot_hash = match result {
-        Ok(applied) => applied,
-        Err(error) => {
-            let mut failures = Vec::new();
-            for (path, content) in &before {
-                let restored = match content {
-                    Some(content) => {
-                        duck_core::fs::write_bytes_preserving(path, content.as_bytes())
-                    }
-                    None => remove_config_file(path),
-                };
-                if let Err(error) = restored {
-                    failures.push(format!("{}: {error:#}", path.display()));
-                }
-            }
-            if !failures.is_empty() {
-                return Err(error.context(format!(
-                    "settings recovery incomplete: {}",
-                    failures.join("; ")
-                )));
-            }
-            return Err(
-                error.context("settings save failed; original configuration files restored")
-            );
-        }
-    };
+    })?;
     Ok(PropData {
         prop_handler_enabled: request.prop_handler_enabled,
         boot_hash,

@@ -5,6 +5,21 @@ use crate::{
     model::{Policy, PolicySchema},
 };
 
+/// Keep opaque backend extensions while validating only fields this editor owns.
+pub(crate) fn update(
+    schema: &PolicySchema,
+    submitted: Policy,
+    previous: &Policy,
+) -> Result<Policy, TrickyError> {
+    let mut clean = sanitize(schema, submitted)?;
+    for (key, value) in previous {
+        if !schema.default_policy.iter().any(|field| &field.key == key) {
+            clean.insert(key.clone(), value.clone());
+        }
+    }
+    Ok(clean)
+}
+
 /// Keeps only the schema's keys, trims values, drops blanks and validates the rest.
 pub(crate) fn sanitize(schema: &PolicySchema, policy: Policy) -> Result<Policy, TrickyError> {
     let mut clean = Policy::new();

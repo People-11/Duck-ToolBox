@@ -9,6 +9,7 @@
 mod adapters;
 pub mod auto;
 mod config_lock;
+mod config_update;
 mod detect;
 pub mod entry;
 pub mod error;

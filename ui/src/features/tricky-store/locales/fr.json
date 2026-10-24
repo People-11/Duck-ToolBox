@@ -10,7 +10,7 @@
     "active": "Actif",
     "inactive": "Désactivé",
     "disabled": "{name} est désactivé dans votre gestionnaire root. Les modifications sont enregistrées et prendront effet une fois le module activé et l’appareil redémarré.",
-    "configError": "Impossible de lire la configuration actuelle, qui sera donc remplacée à l’enregistrement : {error}",
+    "configError": "La configuration actuelle ne peut pas être lue ; l’enregistrement est bloqué : {error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store (ancienne version)",

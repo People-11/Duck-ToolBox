@@ -10,7 +10,7 @@
     "active": "Đang hoạt động",
     "inactive": "Đã tắt",
     "disabled": "{name} đang bị tắt trong trình quản lý root. Các thay đổi vẫn được lưu và sẽ có hiệu lực sau khi bạn bật module rồi khởi động lại.",
-    "configError": "Không đọc được cấu hình hiện tại nên khi lưu sẽ thay thế cấu hình này: {error}",
+    "configError": "Không thể đọc cấu hình hiện tại; đã chặn lưu: {error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store (bản cũ)",

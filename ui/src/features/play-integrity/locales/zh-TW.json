@@ -89,6 +89,7 @@
     "verboseLogs": "記錄等級 0–100；100 包含所有觀察到的屬性讀取。"
   },
   "warnings": {
+    "patch_scope": "設定中的分割區修補日期不同，已略過統一日期連動；保留目前設定。",
     "missing_api": "未設定首發 API；不會假定某個 SDK 值普遍適用。",
     "mismatch": "Build 欄位與對應系統屬性設定了不同值。",
     "provider": "Provider 相容會阻止憑證鏈請求，請確認目前方案是否需要。",

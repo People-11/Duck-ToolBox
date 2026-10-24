@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useMutation, useQueryClient } from "@tanstack/vue-query"
-import { Save } from "@lucide/vue"
+import { RefreshCw, Save } from "@lucide/vue"
 import { computed, ref, watch } from "vue"
 
 import { Button } from "@/components/ui/button"
@@ -28,25 +28,33 @@ const status = useStatusQuery()
 const handler = ref(true)
 const bootHash = ref("")
 const expected = ref<Status["props"]>()
+const hash = computed(() => bootHash.value.replace(/\s/g, "").toLowerCase())
+
+function load(next: Status) {
+  handler.value = next.props.prop_handler_enabled
+  bootHash.value = next.props.boot_hash ?? ""
+  expected.value = { ...next.props }
+}
 
 watch(
   status.data,
-  (next, previous) => {
+  (next) => {
     if (!next) return
     if (
-      previous &&
-      (handler.value !== previous.props.prop_handler_enabled ||
-        bootHash.value !== (previous.props.boot_hash ?? ""))
+      expected.value &&
+      (handler.value !== expected.value.prop_handler_enabled ||
+        hash.value !== (expected.value.boot_hash ?? ""))
     )
       return
-    handler.value = next.props.prop_handler_enabled
-    bootHash.value = next.props.boot_hash ?? ""
-    expected.value = { ...next.props }
+    load(next)
   },
   { immediate: true },
 )
 
-const hash = computed(() => bootHash.value.replace(/\s/g, "").toLowerCase())
+async function refresh() {
+  const result = await status.refetch()
+  if (result.isSuccess && result.data) load(result.data)
+}
 const invalid = computed(
   () => hash.value !== "" && !/^(?:[0-9a-f]{64}|[0-9a-f]{128})$/.test(hash.value),
 )
@@ -113,6 +121,7 @@ const save = useMutation({
             </Field>
           </div>
         </SectionCard>
+        <Button variant="outline" @click="refresh"> <RefreshCw />{{ t("list.refresh") }} </Button>
         <Button size="lg" :disabled="invalid || save.isPending.value" @click="save.mutate()">
           <Spinner v-if="save.isPending.value" />
           <Save v-else />

@@ -89,6 +89,7 @@
     "verboseLogs": "Tingkat log 0–100; 100 mencakup semua pembacaan properti yang diamati."
   },
   "warnings": {
+    "patch_scope": "Tanggal patch partisi yang dikonfigurasi berbeda. Pembaruan keystore dengan satu tanggal dilewati; konfigurasi dipertahankan.",
     "missing_api": "API awal belum diatur; tidak mengasumsikan SDK universal.",
     "mismatch": "Build dan properti terkait memiliki nilai eksplisit yang berbeda.",
     "provider": "Kompatibilitas Provider memblokir rantai sertifikat. Periksa apakah dibutuhkan.",

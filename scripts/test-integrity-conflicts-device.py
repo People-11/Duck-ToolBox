@@ -129,9 +129,21 @@ class Conflicts(unittest.TestCase):
             "SECURITY_PATCH=2026-10-05\n*.security_patch=2026-09-05",
             "SECURITY_PATCH=2026-10-05\nspoofBuild=0\nspoofProps=0",
             "SECURITY_PATCH=2026-02-29",
+            "SECURITY_PATCH=2026-10-05\nro.vendor.build.security_patch=2026-09-05",
+            "SECURITY_PATCH=2026-10-05\nro.vendor.boot_security_patch=2026-08-05",
         ]:
             result = self.request("play-integrity", "preview", {"content": content})
             self.assertIsNone(result["suggested_patch"])
+
+        # Root-manager flags block new scripts while retaining the PI enable choice.
+        for flag in ["disable", "remove"]:
+            self.shell(f"touch {MODULE}/{flag}")
+            try:
+                state = self.request("play-integrity", "status")
+                self.assertFalse(state["lifecycle_eligible"])
+                self.assertTrue(state["options"]["enabled"])
+            finally:
+                self.shell(f"rm -f {MODULE}/{flag}")
 
         # Stop PI independently, then verify both backend configuration and daemon.
         self.request("play-integrity", "disable")

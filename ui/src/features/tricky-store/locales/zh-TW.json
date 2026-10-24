@@ -10,7 +10,7 @@
     "active": "使用中",
     "inactive": "已停用",
     "disabled": "{name} 已在 Root 管理器中停用。變更仍會儲存，但須啟用該模組並重新啟動後才會生效。",
-    "configError": "無法讀取目前的設定檔，儲存時會將其取代：{error}",
+    "configError": "無法讀取目前設定，已阻止儲存：{error}",
     "names": {
       "tricky-store": "Tricky Store",
       "tricky-store-legacy": "Tricky Store（舊版）",

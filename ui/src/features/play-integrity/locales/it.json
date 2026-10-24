@@ -89,6 +89,7 @@
     "verboseLogs": "Livello 0–100; 100 include tutte le letture di proprietà osservate."
   },
   "warnings": {
+    "patch_scope": "Le date delle patch configurate per le partizioni sono diverse. Aggiornamento keystore con una sola data ignorato; configurazione mantenuta.",
     "missing_api": "API iniziale non impostata; nessun valore SDK universale viene presunto.",
     "mismatch": "Build e la proprietà corrispondente hanno valori espliciti diversi.",
     "provider": "La compatibilità Provider blocca le catene di certificati. Verificarne la necessità.",

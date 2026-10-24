@@ -89,6 +89,7 @@
     "verboseLogs": "Mức nhật ký 0–100; 100 bao gồm mọi lần đọc thuộc tính quan sát được."
   },
   "warnings": {
+    "patch_scope": "Ngày bản vá được cấu hình cho các phân vùng khác nhau. Bỏ qua cập nhật keystore bằng một ngày chung; giữ nguyên cấu hình.",
     "missing_api": "Chưa đặt API ban đầu; không giả định SDK dùng chung cho mọi thiết bị.",
     "mismatch": "Build và thuộc tính tương ứng có các giá trị rõ ràng khác nhau.",
     "provider": "Tương thích Provider chặn chuỗi chứng chỉ. Hãy kiểm tra cấu hình có cần nó không.",

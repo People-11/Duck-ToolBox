@@ -125,7 +125,13 @@ pub fn status_line(ctx: &Context) -> Option<String> {
 
 pub fn save(ctx: &Context, request: SaveRequest) -> Result<SaveData> {
     let _lock = crate::config_lock::acquire(ctx)?;
-    let (_detection, adapter) = active_adapter(&ctx.sysroot)?;
+    let (detection, adapter) = active_adapter(&ctx.sysroot)?;
+    if request
+        .expected_backend
+        .is_some_and(|expected| expected != detection.backend)
+    {
+        anyhow::bail!("keystore backend changed; refresh before saving");
+    }
     let previous = adapter.read(&ctx.sysroot)?;
     if request
         .expected_config
@@ -143,32 +149,26 @@ pub fn save(ctx: &Context, request: SaveRequest) -> Result<SaveData> {
         .collect();
     let mut per_app_policy = BTreeMap::new();
     if schema.supports_per_app_policy {
-        for (package, policy) in request.per_app_policy {
-            if !targeted.contains(package.as_str()) {
-                continue;
-            }
-            let policy = crate::policy::sanitize(&schema, policy)?;
+        let mut submitted = request.per_app_policy;
+        for package in targeted {
+            let empty = BTreeMap::new();
+            let policy = crate::policy::update(
+                &schema,
+                submitted.remove(package).unwrap_or_default(),
+                previous.per_app_policy.get(package).unwrap_or(&empty),
+            )?;
             if !policy.is_empty() {
-                per_app_policy.insert(package, policy);
+                per_app_policy.insert(package.to_owned(), policy);
             }
         }
     }
-    let default_policy = crate::policy::sanitize(&schema, request.default_policy)?;
+    let default_policy =
+        crate::policy::update(&schema, request.default_policy, &previous.default_policy)?;
     let restart_required = adapter.restart_keys().iter().any(|key| {
         default_policy
             .get(*key)
             .is_some_and(|value| previous.default_policy.get(*key) != Some(value))
     });
-
-    let target_count = targets.len();
-    adapter.write(
-        &ctx.sysroot,
-        &ConfigData {
-            targets,
-            default_policy,
-            per_app_policy,
-        },
-    )?;
 
     let mut state = State::load(&ctx.paths, &ctx.sysroot)?;
     state.system_apps = normalize_packages(request.system_apps);
@@ -181,10 +181,22 @@ pub fn save(ctx: &Context, request: SaveRequest) -> Result<SaveData> {
         state.auto.baseline_initialized = false;
         state.auto.known_user_apps.clear();
     }
-    state.save(&ctx.paths)?;
+    let target_count = targets.len();
+    let config = ConfigData {
+        targets,
+        default_policy,
+        per_app_policy,
+    };
+    let mut paths = crate::config_update::paths(ctx, adapter.as_ref());
+    paths.push(State::path(&ctx.paths));
+    let saved = crate::config_update::apply(&paths, || {
+        adapter.write(&ctx.sysroot, &config)?;
+        state.save(&ctx.paths)?;
+        adapter.read(&ctx.sysroot)
+    })?;
 
     Ok(SaveData {
-        config: adapter.read(&ctx.sysroot)?,
+        config: saved,
         backend: adapter.backend(),
         target_count,
         system_app_count: state.system_apps.len(),

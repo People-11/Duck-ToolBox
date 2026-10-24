@@ -35,7 +35,7 @@ fn property<'a>(entries: &'a BTreeMap<String, String>, name: &str) -> Option<(&'
         .map(|(key, value)| (key.as_str(), value.as_str()))
 }
 
-pub fn suggested_patch(entries: &BTreeMap<String, String>) -> Option<&str> {
+fn system_patch(entries: &BTreeMap<String, String>) -> Option<&str> {
     let build = (entries.get("spoofBuild").is_none_or(|v| v != "0"))
         .then(|| entries.get("SECURITY_PATCH").map(String::as_str))
         .flatten();
@@ -46,6 +46,26 @@ pub fn suggested_patch(entries: &BTreeMap<String, String>) -> Option<&str> {
         return None;
     }
     build.or(prop).filter(|value| valid_patch_date(value))
+}
+
+fn partition_conflicts<'a>(entries: &'a BTreeMap<String, String>, date: &str) -> Vec<&'a str> {
+    if entries.get("spoofProps").is_some_and(|value| value == "0") {
+        return Vec::new();
+    }
+    // OMK resolves vendor/boot patch properties independently from the system patch.
+    [
+        "ro.vendor.build.security_patch",
+        "ro.vendor.boot_security_patch",
+    ]
+    .into_iter()
+    .filter_map(|name| property(entries, name))
+    .filter(|(_, value)| *value != date)
+    .map(|(key, _)| key)
+    .collect()
+}
+
+pub fn suggested_patch(entries: &BTreeMap<String, String>) -> Option<&str> {
+    system_patch(entries).filter(|date| partition_conflicts(entries, date).is_empty())
 }
 
 fn valid_patch_date(value: &str) -> bool {
@@ -77,6 +97,14 @@ fn valid_patch_date(value: &str) -> bool {
 
 pub fn inspect(entries: &BTreeMap<String, String>) -> Vec<Value> {
     let mut warnings = Vec::new();
+    if let Some(date) = system_patch(entries) {
+        let mut fields = partition_conflicts(entries, date);
+        fields.sort_unstable();
+        fields.dedup();
+        if !fields.is_empty() {
+            warnings.push(json!({"code":"patch_scope", "fields":fields}));
+        }
+    }
     for key in ["DEVICE_INITIAL_SDK_INT", "ro.board.first_api_level"] {
         if entries.get(key).is_none_or(String::is_empty) {
             warnings.push(json!({"code":"missing_api","fields":[key]}));
@@ -139,7 +167,7 @@ mod tests {
             ),
             (
                 "SECURITY_PATCH=2026-10-05\n*.security_patch=2026-09-05\nro.build.version.security_patch=2026-10-05",
-                Some("2026-10-05"),
+                None,
             ),
             ("SECURITY_PATCH=2026-10-05\nspoofBuild=0", None),
             ("*.security_patch=2026-09-05\nspoofProps=0", None),
@@ -176,5 +204,30 @@ mod tests {
         entries.insert("spoofProps".into(), "0".into());
         entries.remove("ro.build.version.security_patch");
         assert!(!inspect(&entries).iter().any(|w| w["code"] == "mismatch"));
+    }
+    #[test]
+    fn partition_specific_patch_overrides_are_not_replaced_by_a_single_date() {
+        for property in [
+            "ro.vendor.build.security_patch",
+            "ro.vendor.boot_security_patch",
+            "*security_patch",
+        ] {
+            let config = format!(
+                "SECURITY_PATCH=2026-10-05\nro.build.version.security_patch=2026-10-05\n{property}=2026-09-05"
+            );
+            let mut entries = crate::config::parse(&config, "prop").unwrap();
+            let before = entries.clone();
+            assert_eq!(suggested_patch(&entries), None, "{property}");
+            assert!(
+                inspect(&entries)
+                    .iter()
+                    .any(|warning| warning["code"] == "patch_scope")
+            );
+            assert_eq!(entries, before);
+            entries.insert("spoofProps".into(), "0".into());
+            assert_eq!(suggested_patch(&entries), Some("2026-10-05"));
+        }
+        let entries = crate::config::parse("SECURITY_PATCH=2026-10-05\n*security_patch=2026-09-05\nro.build.version.security_patch=2026-10-05\nro.vendor.build.security_patch=2026-10-05\nro.vendor.boot_security_patch=2026-10-05", "prop").unwrap();
+        assert_eq!(suggested_patch(&entries), Some("2026-10-05"));
     }
 }
