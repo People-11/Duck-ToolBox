@@ -49,6 +49,13 @@ pub fn private_dir(path: &Path) -> Result<()> {
 }
 pub fn atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path.parent().ok_or_else(|| anyhow::anyhow!("no parent"))?;
+    // A basename-only output (e.g. wget -O PIXEL_VERSIONS_HTML) has an empty
+    // parent. Resolve it to the current directory for create and fsync.
+    let parent = if parent.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        parent
+    };
     // Output may belong to an external migration/download directory. Keep its mode;
     // only newly created directories and the new file need private permissions.
     let mut directories = fs::DirBuilder::new();
@@ -143,6 +150,23 @@ mod tests {
         assert!(Lock::acquire(root.path()).is_err());
         drop(lock);
         assert!(Lock::acquire(root.path()).is_ok());
+    }
+
+    #[test]
+    fn atomic_writes_basename_only_paths() {
+        // Use a unique name in the current directory without changing cwd
+        // globally (which would race with other tests).
+        let temporary = tempfile::Builder::new()
+            .prefix(".pif-atomic-relative-")
+            .tempfile_in(".")
+            .unwrap();
+        let basename = Path::new(temporary.path().file_name().unwrap());
+        assert!(basename.parent().unwrap().as_os_str().is_empty());
+
+        atomic(basename, b"first download").unwrap();
+        assert_eq!(fs::read_to_string(basename).unwrap(), "first download");
+        atomic(basename, b"updated download").unwrap();
+        assert_eq!(fs::read_to_string(basename).unwrap(), "updated download");
     }
     #[cfg(unix)]
     #[test]

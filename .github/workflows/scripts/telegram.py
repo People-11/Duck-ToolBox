@@ -156,8 +156,9 @@ def send_notification(artifact_path: str, release_asset_url: str) -> None:
         method = "sendMessage"
         fields["text"] = (
             f"{caption}\n\n"
-            f"安装包大小：{size / (1024 * 1024):.2f} MiB，"
-            "超过 Telegram Bot 的 50 MB 上传限制，改为提供 Release 下载链接。\n"
+            f"Module ZIP size: {size / (1024 * 1024):.2f} MiB. "
+            "This exceeds Telegram Bot's 50 MB upload limit. "
+            "Download the module from GitHub Releases instead.\n"
             f'<a href="{_escape_html(release_asset_url)}">'
             f"{_escape_html(artifact.name)}</a>"
         )
