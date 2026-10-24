@@ -148,7 +148,9 @@ async function importFile(event: Event) {
         >{{ t(`nav.${tab}`) }}</RouterLink
       >
     </nav>
-    <EnginePower :stop-only="section !== 'status'" class="px-4 pt-5" />
+    <div class="px-4 pt-5">
+      <EnginePower :stop-only="section !== 'status'" />
+    </div>
     <fieldset :disabled="s.busy.value" class="flex min-w-0 flex-1 flex-col gap-5 px-4 pt-5 pb-6">
       <RecoveryNotice />
       <QueryState
