@@ -61,6 +61,9 @@ const labels: Record<Key, () => string> = {
 
 const provision = useMutation({
   mutationFn: () => deviceIdsApi.provision(profile.value!),
+  onMutate: () => {
+    result.value = null
+  },
   onSuccess: (data) => {
     result.value = data
     notifySuccess(t("result.done"))

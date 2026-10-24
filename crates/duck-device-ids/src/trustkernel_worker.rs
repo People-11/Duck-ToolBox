@@ -136,7 +136,20 @@ pub(crate) fn invoke(
         "--exchange".into(),
         path.as_os_str().into(),
     ];
-    let output = runner.run(&args)?;
+    let output = match runner.run(&args) {
+        Ok(output) => output,
+        Err(error) => {
+            let (stdout, stderr) = runner.diagnostics().unwrap_or_default();
+            session.diagnostics.push(crate::backend::Diagnostic {
+                stage,
+                tag: tag.map(str::to_owned),
+                status: format!("{error:#}"),
+                stdout,
+                stderr,
+            });
+            return Err(error);
+        }
+    };
     session.diagnostics.push(crate::backend::Diagnostic {
         stage,
         tag: tag.map(str::to_owned),
@@ -162,6 +175,14 @@ pub(crate) fn invoke(
                 .into(),
         ),
         Reply::Failed { message } => Err(DeviceIdsError::Transport(message.clone()).into()),
-        _ => Ok(reply),
+        Reply::Returned { status, .. } => {
+            session
+                .diagnostics
+                .last_mut()
+                .unwrap()
+                .status
+                .push_str(&format!("; KPH status {status} (0x{:08x})", *status as u32));
+            Ok(reply)
+        }
     }
 }

@@ -62,7 +62,9 @@ missing/malformed reply cannot count as a successful import.
 Every worker has a 30-second timeout and ownership that kills/reaps it on normal
 error/timeout unwinding. Vendor stdout/stderr cannot enter the command's JSON stream
 or public logs. Diagnostics are bounded to 8192 bytes per stream/invocation and retained
-in the private report. Temporary files are removed on success and error. Process
+in the private report, including bounded output captured before a timeout or output-limit
+failure. Returned vendor status codes are recorded separately from process exit status.
+Temporary files are removed on success and error. Process
 isolation contains crashes and hangs; the worker still needs root privileges for the
 device driver and is not a security sandbox.
 

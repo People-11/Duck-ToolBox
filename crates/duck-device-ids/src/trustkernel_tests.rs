@@ -269,3 +269,89 @@ fn crashed_or_invalid_workers_preserve_attempted_write_state() {
         assert!(session.writes.iter().all(|write| write.exists.is_none()));
     }
 }
+
+#[test]
+fn timed_out_worker_retains_private_diagnostics_and_raw_vendor_status() {
+    let root = tempfile::tempdir().unwrap();
+    let (mut runner, _) = runner(root.path(), "attestation_ids", false);
+    let plan = Plan::build(
+        &plan_tests::profile(),
+        Backend::Trustkernel,
+        &plan_tests::properties(),
+    )
+    .unwrap();
+    let Request::Trustkernel { items } = &plan.request else {
+        panic!()
+    };
+    let mut session = backend::SessionInfo::default();
+    trustkernel::execute(
+        &runner,
+        std::path::Path::new("/vendor/lib64/libkphproxy.so"),
+        items,
+        &mut session,
+    )
+    .unwrap_err();
+    assert!(
+        session
+            .diagnostics
+            .last()
+            .unwrap()
+            .status
+            .contains("0xffff0005")
+    );
+
+    let source = fs::read_to_string(&runner.executable).unwrap().replace(
+        "call = request['call']",
+        "call = request['call']\nif call['operation'] == 'import' and call['item']['tag'] == 'attestation_ids':\n    import time\n    print('private diagnostic before timeout', file=sys.stderr, flush=True)\n    time.sleep(10)",
+    );
+    fs::write(&runner.executable, source).unwrap();
+    runner.timeout = Duration::from_secs(1);
+    let mut session = backend::SessionInfo::default();
+    let error = trustkernel::execute(
+        &runner,
+        std::path::Path::new("/vendor/lib64/libkphproxy.so"),
+        items,
+        &mut session,
+    )
+    .unwrap_err();
+    assert_eq!(error::code_of(&error), "provisioning_timeout");
+    assert!(!error.to_string().contains("private diagnostic"));
+    assert!(
+        session
+            .diagnostics
+            .last()
+            .unwrap()
+            .stderr
+            .contains("private diagnostic before timeout")
+    );
+    assert_eq!(
+        session.diagnostics.last().unwrap().tag.as_deref(),
+        Some("attestation_ids")
+    );
+    assert_eq!(session.writes.len(), 2);
+    assert!(session.writes[0].import_succeeded);
+    assert!(!session.writes[1].import_succeeded);
+}
+
+#[test]
+fn oversized_vendor_output_fails_with_bounded_private_diagnostics() {
+    let root = tempfile::tempdir().unwrap();
+    let (runner, _) = runner(root.path(), "", false);
+    let source = fs::read_to_string(&runner.executable).unwrap().replace(
+        "call = request['call']",
+        "call = request['call']\nprint('private vendor diagnostic:' + 'x'*9000, file=sys.stderr, flush=True)",
+    );
+    fs::write(&runner.executable, source).unwrap();
+    let request = trustkernel_worker::Request {
+        library: "/vendor/lib64/libkphproxy.so".into(),
+        call: trustkernel_worker::Call::Version,
+    };
+    let mut session = backend::SessionInfo::default();
+    let error =
+        trustkernel_worker::invoke(&runner, &request, &mut session, "version", None).unwrap_err();
+    assert!(!error.to_string().contains("private vendor diagnostic"));
+    let diagnostic = session.diagnostics.last().unwrap();
+    assert!(diagnostic.stderr.starts_with("private vendor diagnostic:"));
+    assert_eq!(diagnostic.stderr.len(), 8192);
+    assert!(diagnostic.status.contains("exceeds 8192 bytes"));
+}

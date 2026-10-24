@@ -152,3 +152,34 @@ fn invalid_target_or_context_is_rejected_before_loading_vendor_code() {
         );
     }
 }
+
+#[test]
+fn supported_uuid_library_does_not_need_optional_version_or_remove_exports() {
+    let (_directory, library) = library(
+        r#"
+#include <stdint.h>
+int kph_import_ta_data_by_uuid(const char *uuid, const char *tag,
+    const unsigned char *context, uint32_t context_len,
+    const unsigned char *payload, uint32_t payload_len, uint32_t storage) { return 0; }
+int kph_verify_data_by_uuid(const char *uuid, const char *tag) { return 0; }
+"#,
+    );
+    assert!(matches!(
+        trustkernel_native::call(&library, &Call::Version).unwrap(),
+        Reply::Returned {
+            status: 0,
+            version: None,
+            ..
+        }
+    ));
+    assert!(matches!(
+        trustkernel_native::call(
+            &library,
+            &Call::Import {
+                item: items().remove(0)
+            }
+        )
+        .unwrap(),
+        Reply::Returned { status: 0, .. }
+    ));
+}

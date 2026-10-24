@@ -12,6 +12,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+const MAX_DIAGNOSTIC_BYTES: u64 = 8192;
+
 pub(crate) struct Runner {
     pub executable: PathBuf,
     pub directory: tempfile::TempDir,
@@ -56,27 +58,44 @@ impl Runner {
             if let Some(status) = child.0.try_wait()? {
                 break status;
             }
-            if fs::metadata(&output_path)?.len() > 8192 || fs::metadata(&error_path)?.len() > 8192 {
-                anyhow::bail!("KPH diagnostic output exceeds 8192 bytes");
-            }
+            self.check_output_limit()?;
             if Instant::now() >= deadline {
                 return Err(DeviceIdsError::Timeout.into());
             }
             thread::sleep(Duration::from_millis(10));
         };
-        let read = |path: &Path| -> Result<String> {
-            let mut bytes = vec![];
-            File::open(path)?.take(8193).read_to_end(&mut bytes)?;
-            if bytes.len() > 8192 {
-                anyhow::bail!("KPH diagnostic output exceeds 8192 bytes");
-            }
-            Ok(String::from_utf8_lossy(&bytes).into_owned())
-        };
+        self.check_output_limit()?;
+        let (stdout, stderr) = self.diagnostics()?;
         Ok(Output {
             status,
-            stdout: read(&output_path)?,
-            stderr: read(&error_path)?,
+            stdout,
+            stderr,
         })
+    }
+
+    /// Also available after an error has killed/reaped the child. Oversized streams
+    /// retain their bounded prefix so failure reports keep the original TA diagnostic.
+    pub fn diagnostics(&self) -> Result<(String, String)> {
+        let read = |name| -> Result<String> {
+            let file = File::options()
+                .read(true)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+                .open(self.directory.path().join(name))?;
+            anyhow::ensure!(file.metadata()?.is_file(), "invalid KPH diagnostic file");
+            let mut bytes = vec![];
+            file.take(MAX_DIAGNOSTIC_BYTES).read_to_end(&mut bytes)?;
+            Ok(String::from_utf8_lossy(&bytes).into_owned())
+        };
+        Ok((read("stdout")?, read("stderr")?))
+    }
+
+    fn check_output_limit(&self) -> Result<()> {
+        for name in ["stdout", "stderr"] {
+            if fs::metadata(self.directory.path().join(name))?.len() > MAX_DIAGNOSTIC_BYTES {
+                anyhow::bail!("KPH diagnostic output exceeds {MAX_DIAGNOSTIC_BYTES} bytes");
+            }
+        }
+        Ok(())
     }
 }
 
