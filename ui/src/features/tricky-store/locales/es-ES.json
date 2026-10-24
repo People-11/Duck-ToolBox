@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "Al arrancar, restablece las propiedades de depuración, del gestor de arranque y del arranque verificado para que parezcan las de un dispositivo bloqueado.",
     "bootHashHint": "verifiedBootHash de Key Attestation. Si lo dejas vacío, ya no se sobrescribirá ro.boot.vbmeta.digest.",
-    "invalidHash": "Introduce 64 caracteres hexadecimales",
+    "invalidHash": "Introduce 64 / 128 caracteres hexadecimales",
     "synced": "También se ha escrito en la política vb_hash del módulo"
   },
   "entry": {

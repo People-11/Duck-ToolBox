@@ -260,7 +260,7 @@ pub fn preview(engine: &Engine, input: &Value) -> Result<Value> {
         .map(|key| json!({"key":key,"before":before.get(key),"after":entries.get(key)}))
         .collect();
     Ok(
-        json!({"content":display(&entries)?,"json":serialize(&entries,"json")?,"entries":entries,"changes":changes,"revision":old["revision"],"warnings":crate::rules::inspect(&entries),"suggested_patch":entries.get("SECURITY_PATCH").or_else(||entries.get("ro.build.version.security_patch"))}),
+        json!({"content":display(&entries)?,"json":serialize(&entries,"json")?,"entries":entries,"changes":changes,"revision":old["revision"],"warnings":crate::rules::inspect(&entries),"suggested_patch":crate::rules::suggested_patch(&entries)}),
     )
 }
 

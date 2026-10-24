@@ -45,7 +45,13 @@ resetprop_if_diff sys.oem_unlock_allowed 0
 resetprop_if_empty ro.boot.vbmeta.device_state locked
 resetprop_if_empty ro.boot.vbmeta.invalidate_on_error yes
 resetprop_if_empty ro.boot.vbmeta.avb_version 1.0
-resetprop_if_empty ro.boot.vbmeta.hash_alg sha256
+digest="$(resetprop ro.boot.vbmeta.digest)"
+hash_alg=sha256
+case "$digest" in
+    *[!0-9a-fA-F]*) ;;
+    *) [ "${#digest}" -ne 128 ] || hash_alg=sha512 ;;
+esac
+resetprop_if_empty ro.boot.vbmeta.hash_alg "$hash_alg"
 resetprop_if_empty ro.boot.vbmeta.size 4096
 
 # Compact property area to hide modifications on supported root solutions

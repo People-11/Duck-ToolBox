@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "Resets bootloader, Verified Boot and debug props at boot so they look like a locked device.",
     "bootHashHint": "verifiedBootHash from Key Attestation. Leave empty to stop overriding ro.boot.vbmeta.digest.",
-    "invalidHash": "Enter 64 hexadecimal characters",
+    "invalidHash": "Enter 64 / 128 hexadecimal characters",
     "synced": "Also written to the module's vb_hash policy"
   },
   "entry": {

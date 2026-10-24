@@ -29,6 +29,16 @@ beforeEach(() => setActivePinia(createPinia()))
 afterEach(() => vi.restoreAllMocks())
 
 describe("target saves", () => {
+  it("retains the configuration read before a competing policy update", async () => {
+    const write = vi.spyOn(trickyStoreApi, "save").mockResolvedValue(saved)
+    const store = useTrickyStore()
+    store.load(status)
+    store.toggle("com.pending")
+    store.load({ ...status, config: { ...status.config, default_policy: { os_patch: "202610" } } })
+    await store.save()
+    expect(write.mock.calls[0]![0].expected_config).toEqual(status.config)
+    expect(write.mock.calls[0]![0].default_policy).toEqual({ os_patch: "prop" })
+  })
   it("retains the clean draft when a page reattaches to the same cached status", () => {
     const store = useTrickyStore()
     store.load(status)

@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "All'avvio reimposta le prop di bootloader, Avvio verificato e debug come su un dispositivo bloccato.",
     "bootHashHint": "Valore verifiedBootHash di Key Attestation. Lascia vuoto per non sovrascrivere più ro.boot.vbmeta.digest.",
-    "invalidHash": "Inserisci 64 caratteri esadecimali",
+    "invalidHash": "Inserisci 64 / 128 caratteri esadecimali",
     "synced": "Scritto anche nella politica vb_hash del modulo"
   },
   "entry": {

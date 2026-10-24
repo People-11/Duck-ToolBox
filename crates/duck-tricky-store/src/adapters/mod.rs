@@ -20,6 +20,15 @@ pub(crate) trait ConfigAdapter {
     fn backend(&self) -> Backend;
     /// Device path of the backend's data directory.
     fn config_dir(&self) -> &'static str;
+    /// Files this adapter may publish during a configuration update.
+    fn config_files(&self) -> &'static [&'static str] {
+        match self.backend() {
+            Backend::TrickyStore => &["config.ini"],
+            Backend::TrickyStoreLegacy => &["target.txt", "security_patch.txt"],
+            Backend::TeeSimulator => &["config.json"],
+            Backend::OhMyKeymint => &["injector.toml", "config.toml"],
+        }
+    }
     /// Device path of the keybox this backend signs with.
     fn keybox_path(&self, _sysroot: &Sysroot) -> String {
         format!("{}/keybox.xml", self.config_dir())

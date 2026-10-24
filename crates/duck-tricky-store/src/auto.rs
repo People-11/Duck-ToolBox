@@ -23,6 +23,7 @@ pub struct AutoApplyData {
 }
 
 pub fn apply(ctx: &Context) -> Result<AutoApplyData> {
+    let _lock = crate::config_lock::acquire(ctx)?;
     let mut state = State::load(&ctx.paths, &ctx.sysroot)?;
     if !state.auto.enabled {
         return Ok(AutoApplyData {

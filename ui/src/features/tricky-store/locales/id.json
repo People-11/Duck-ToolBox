@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "Menyetel ulang prop bootloader, Booting Terverifikasi, dan debug saat booting agar terlihat seperti perangkat yang terkunci.",
     "bootHashHint": "verifiedBootHash dari Key Attestation. Kosongkan agar ro.boot.vbmeta.digest tidak lagi ditimpa.",
-    "invalidHash": "Masukkan 64 karakter heksadesimal",
+    "invalidHash": "Masukkan 64 / 128 karakter heksadesimal",
     "synced": "Juga ditulis ke kebijakan vb_hash modul"
   },
   "entry": {

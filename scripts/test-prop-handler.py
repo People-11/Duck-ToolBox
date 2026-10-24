@@ -117,7 +117,7 @@ elif len(args) == 2 and args[0] == '--delete':
 
     def test_unconfigured_engine_leaves_properties_to_the_original_handler(self):
         self.run_hook("post-fs-data.sh")
-        self.assert_applied()
+        self.assert_early()
         self.run_hook("boot-completed.sh")
         self.assert_applied()
 
@@ -142,6 +142,16 @@ elif len(args) == 2 and args[0] == '--delete':
         self.run_hook("boot-completed.sh")
         self.assertEqual(self.properties()["ro.boot.vbmeta.size"], "8192")
 
+    def test_sha512_boot_hash_gets_matching_missing_algorithm(self):
+        for enabled in [True, False]:
+            with self.subTest(enabled=enabled):
+                self.reset()
+                self.options(mode="scripts-only", enabled=enabled)
+                (self.adb / "boot_hash").write_text("CD" * 64)
+                self.run_hook("boot-completed.sh")
+                self.assertEqual(self.properties()["ro.boot.vbmeta.hash_alg"], "sha512")
+                self.assertEqual(self.properties()["ro.boot.vbmeta.digest"], "cd" * 64)
+
     def test_disabled_conflicting_or_invalid_engine_releases_the_handler(self):
         for scenario in ["disabled", "conflict", "invalid-config", "invalid-options"]:
             with self.subTest(scenario=scenario):
@@ -160,6 +170,8 @@ elif len(args) == 2 and args[0] == '--delete':
                     conflict.mkdir(parents=True)
                     (conflict / "module.prop").write_text("id=playintegrityfix\n")
                 self.run_hook("post-fs-data.sh")
+                self.assert_early()
+                self.run_hook("boot-completed.sh")
                 self.assert_applied()
 
     def test_failed_engine_stage_falls_back_in_every_boot_hook(self):
@@ -169,7 +181,39 @@ elif len(args) == 2 and args[0] == '--delete':
             with self.subTest(hook=hook):
                 self.reset()
                 self.run_hook(hook)
-                self.assert_applied()
+                if hook == "boot-completed.sh":
+                    self.assert_applied()
+                else:
+                    self.assert_early()
+
+    def assert_early(self):
+        values = self.properties()
+        self.assertEqual(values["ro.debuggable"], "0")
+        for key in ["ro.boot.verifiedbootstate", "ro.boot.flash.locked",
+                    "ro.boot.bootmode", "vendor.boot.bootmode"]:
+            self.assertEqual(values[key], INITIAL[key], key)
+        self.assertNotIn("ro.boot.vbmeta.digest", values)
+        self.assertNotIn("ro.boot.vbmeta.device_state", values)
+
+    def test_inactive_engine_always_defers_oem_properties(self):
+        for hook in ["post-fs-data.sh", "late-load.sh"]:
+            for scenario in ["disabled", "unconfigured", "conflict", "missing-engine"]:
+                with self.subTest(hook=hook, scenario=scenario):
+                    self.reset()
+                    self.options(enabled=scenario != "disabled")
+                    module = self.adb / "modules/playintegrityfix"
+                    shutil.rmtree(module, ignore_errors=True)
+                    if scenario == "conflict":
+                        module.mkdir(parents=True)
+                        (module / "module.prop").write_text("id=playintegrityfix\n")
+                    if scenario == "missing-engine":
+                        (self.component / "pif-engine").unlink(missing_ok=True)
+                    self.run_hook(hook)
+                    self.assert_early()
+                    self.run_hook("boot-completed.sh")
+                    self.assert_applied()
+                    if scenario == "missing-engine":
+                        (self.component / "pif-engine").symlink_to(ENGINE.resolve())
 
     def test_fallback_still_honors_the_switch_and_applies_the_hash(self):
         self.options(mode="scripts-only")

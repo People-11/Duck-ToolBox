@@ -73,6 +73,7 @@ export type Status = z.infer<typeof statusSchema>
 export type PackageEntry = Status["packages"][number]
 
 const savedSchema = z.object({
+  config: statusSchema.shape.config.optional(),
   target_count: z.number(),
   /** A changed setting takes effect only after the keystore module restarts. */
   restart_required: z.boolean(),
@@ -80,6 +81,7 @@ const savedSchema = z.object({
 export type Saved = z.infer<typeof savedSchema>
 
 export interface SaveRequest {
+  expected_config?: Status["config"]
   targets: Target[]
   default_policy: Policy
   per_app_policy: Record<string, Policy>
@@ -112,6 +114,7 @@ const propsSchema = z.object({
   prop_handler_enabled: z.boolean(),
   boot_hash: z.string().nullable(),
   applied_boot_hash: z.boolean(),
+  restart_required: z.boolean().default(false),
   synced_backend_policy: z.boolean(),
 })
 
@@ -171,8 +174,11 @@ export const trickyStoreApi = {
   xposed: () => duckd(ts("apps", "xposed"), { schema: packageListSchema }),
   unnecessary: () => duckd(ts("apps", "unnecessary", "--refresh"), { schema: packageListSchema }),
 
-  saveProps: (request: { prop_handler_enabled: boolean; boot_hash: string | null }) =>
-    duckd(ts("props"), { input: request, schema: propsSchema }),
+  saveProps: (request: {
+    prop_handler_enabled: boolean
+    boot_hash: string | null
+    expected?: Status["props"]
+  }) => duckd(ts("props"), { input: request, schema: propsSchema }),
 
   entry: () => duckd(ts("entry", "status"), { schema: entrySchema }),
   setEntry: (enabled: boolean) =>

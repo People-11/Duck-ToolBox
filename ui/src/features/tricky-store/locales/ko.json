@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "부팅 시 부트로더, Verified Boot, 디버그 관련 속성을 재설정하여 잠긴 기기처럼 보이게 합니다.",
     "bootHashHint": "Key Attestation 앱에 표시되는 verifiedBootHash 값입니다. 비워 두면 ro.boot.vbmeta.digest를 더 이상 덮어쓰지 않습니다.",
-    "invalidHash": "16진수 64자를 입력하세요",
+    "invalidHash": "16진수 64 / 128자를 입력하세요",
     "synced": "모듈의 vb_hash 정책에도 기록됨"
   },
   "entry": {

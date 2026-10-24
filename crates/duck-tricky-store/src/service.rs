@@ -42,6 +42,7 @@ pub struct StatusData {
 
 #[derive(Debug, Serialize)]
 pub struct SaveData {
+    pub config: ConfigData,
     pub backend: crate::model::Backend,
     pub target_count: usize,
     pub system_app_count: usize,
@@ -123,7 +124,16 @@ pub fn status_line(ctx: &Context) -> Option<String> {
 }
 
 pub fn save(ctx: &Context, request: SaveRequest) -> Result<SaveData> {
+    let _lock = crate::config_lock::acquire(ctx)?;
     let (_detection, adapter) = active_adapter(&ctx.sysroot)?;
+    let previous = adapter.read(&ctx.sysroot)?;
+    if request
+        .expected_config
+        .as_ref()
+        .is_some_and(|expected| expected != &previous)
+    {
+        anyhow::bail!("keystore configuration changed; refresh before saving");
+    }
     let schema = adapter.policy_schema();
 
     let targets = normalize_targets(request.targets, schema.supports_app_mode);
@@ -144,14 +154,10 @@ pub fn save(ctx: &Context, request: SaveRequest) -> Result<SaveData> {
         }
     }
     let default_policy = crate::policy::sanitize(&schema, request.default_policy)?;
-    let previous = adapter
-        .read(&ctx.sysroot)
-        .unwrap_or_default()
-        .default_policy;
     let restart_required = adapter.restart_keys().iter().any(|key| {
         default_policy
             .get(*key)
-            .is_some_and(|value| previous.get(*key) != Some(value))
+            .is_some_and(|value| previous.default_policy.get(*key) != Some(value))
     });
 
     let target_count = targets.len();
@@ -178,6 +184,7 @@ pub fn save(ctx: &Context, request: SaveRequest) -> Result<SaveData> {
     state.save(&ctx.paths)?;
 
     Ok(SaveData {
+        config: adapter.read(&ctx.sysroot)?,
         backend: adapter.backend(),
         target_count,
         system_app_count: state.system_apps.len(),

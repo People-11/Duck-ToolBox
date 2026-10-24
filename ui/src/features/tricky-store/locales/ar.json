@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "يعيد ضبط خصائص برنامج bootloader وVerified Boot وتصحيح الأخطاء عند بدء التشغيل ليبدو الجهاز مقفلًا.",
     "bootHashHint": "قيمة verifiedBootHash من تطبيق Key Attestation. اترك الحقل فارغًا لإيقاف استبدال قيمة ro.boot.vbmeta.digest.",
-    "invalidHash": "أدخِل 64 حرفًا ست عشريًا",
+    "invalidHash": "أدخِل 64 / 128 حرفًا ست عشريًا",
     "synced": "تمت كتابتها أيضًا في سياسة vb_hash الخاصة بالوحدة"
   },
   "entry": {

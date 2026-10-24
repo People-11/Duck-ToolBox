@@ -46,7 +46,7 @@ Android 13 及以上的 Basic 要求证明的 root of trust 由 Google 提供；
 | 无配置 | 完整模式须先应用有效非空配置，才执行全局兼容脚本；明确保存 scripts-only 后可独立运行。启用但缺配置时不回落执行旧敏感属性处理器；boot hash 仍由原处理器持有。 |
 | ROM 遮罩 | 仅允许受支持分区 app／priv-app／overlay 下单个条目；根目录、父目录、overlay 通配符和 config 目录均拒绝。CLI 保存与脚本运行前均校验，包括展开后的名称。 |
 | DenyList | 保留上游自动管理：完整模式在强制名单开启时移除 GMS／Play 商店；scripts-only 模式添加。CLI 按包名和进程记录原值、预期值及未完成操作，写入前保存，写后读回。关闭仅恢复可核对的自有改动；外部编辑保留并提示。Magisk 在强制名单开启时添加条目可能终止相应进程，恢复操作也可能触发。未记录的历史改动不推测原值。 |
-| 早期启动 | 在模块挂载之前准备 ROM 冲突遮罩及早期 OEM 属性。使用 `resetprop -n` 避免触发 init 属性服务；不联网、不等开机完成。 |
+| 早期启动 | 在模块挂载之前准备 ROM 冲突遮罩及早期 OEM 属性。使用 `resetprop -n` 避免触发 init 属性服务；不联网、不等开机完成。PI 无配置、停用、冲突或失败的回退路径也只处理早期属性；锁定状态、AVB 默认值及保存的 boot hash 等待开机完成。 |
 | 开机完成 | 延后处理 verified boot、锁定状态等 OEM 敏感属性，保持上游避免指纹识别／显示模式故障的时序。 |
 | KernelSU late-load | 由 `late-load.sh` 代替早期阶段；当前 KernelSU 源码随后加载属性并调用 metamodule 挂载，再执行后续阶段。挂载实现与 OEM 行为须实机验证。 |
 | SELinux | 保留 permissive 时限制 enforce/policy 文件读取权限的兼容行为；不是切换内核 enforcing。记录原始权限，关闭时仅恢复未被外部修改的权限；持久属性恢复记录对引号等字符作 shell 数据转义，按上游写回原值，可能覆盖后续对相同持久属性的修改；此行为在关闭界面明确告知。 |
@@ -67,6 +67,32 @@ Android 13 及以上的 Basic 要求证明的 root of trust 由 Google 提供；
 - [AOSP system/core a3b721a3：属性服务](https://android.googlesource.com/platform/system/core/+/a3b721a32242006b59cb12bd62c9133632af3a2d/init/property_service.cpp)：ro 属性 write-once 及派生属性逻辑。
 - [Android NDK：JNI 字符串说明](https://developer.android.com/ndk/guides/jni-tips#utf-8_and_utf-16_strings)：NewStringUTF 接受 Modified UTF-8；标准 UTF-8 输入需要显式解码。
 
+## 属性与 keystore 配置边界
+
+- Prop Setting 接受 AVB 的 SHA-256／SHA-512 十六进制摘要；OMK 的 `vb_hash` 固定为 32 字节，
+  不兼容的摘要在写入共享开关、hash 文件或策略前拒绝。只有 hash 实际改变时才同步 backend policy，
+  单独切换 handler 保留已有独立 `vb_hash`。已有 AVB 元数据不覆盖；缺失的算法默认值按摘要长度选择。
+- Prop Setting 先读取全部受影响文件，后端与共享配置发布失败时恢复原内容；实时属性在配置文件成功发布后设置。
+  清空 hash 只停止后续覆盖，已应用的属性需重启清除；handler 变更及 OMK 重启字段变更在保存结果中报告重启需求。
+  文件恢复覆盖普通 I/O 失败，不构成跨文件掉电原子性保证。
+- 普通保存、自动加名单、Prop Setting 和补丁事务共用 feature 内的进程写锁；释放锁时显式 unlock，
+  不等待 fork 子进程的临时文件描述符副本关闭。该锁不协调第三方工具；编辑器提交读取时的配置作为乐观并发检查，
+  防止旧页面覆盖本项目另一入口或第三方已经完成的策略变更。Prop Setting 同样提交读取时的共享开关与 hash，
+  拒绝旧表单覆盖外部已保存的设置。保存返回适配器实际读回配置，保留各后端的规范化语义。
+- PI 的补丁建议按启用的 Build／属性 hook 计算，属性优先级与原生 hook 一致：精确键先于前导 `*` 后缀规则。
+  明确冲突、空 Build 值、全部关闭及无效日历日期均不建议自动联动；保留原配置，冲突通过预览提示。
+  keystore 的 per-app policy 仍优先于 default policy；默认策略联动不覆盖 per-app policy 或不识别的扩展键。
+- SELinux 的属性文本和文件权限不等于内核 enforcing 状态；不会为修复检测提示而切换内核 SELinux 状态。
+
+补充核对源码：
+
+- [AVB 76117860：SHA-256／SHA-512 摘要](https://android.googlesource.com/platform/external/avb/+/761178607206f4cb2af79ed9eec52d8cbd814adb/libavb/avb_slot_verify.c)。
+- [Android common 32521e28：SELinux enforce 读取与状态更新](https://android.googlesource.com/kernel/common/+/32521e28daaacb02caff14090988d91503e61978/security/selinux/selinuxfs.c)。
+- [PIF 23ec56c：OEM 属性延后时序](https://github.com/osm0sis/PlayIntegrityFork/blob/23ec56c2440c4fd1a5e893a23ef7861d6366a828/module/service.sh)。
+- [Tricky Addon cf167849：共享属性设置](https://github.com/KOWX712/Tricky-Addon-Update-Target-List/blob/cf167849aaa7696972a3c7826ec94294e9e47fce/webui/src/dialog/prop.ts)及 [prop.sh](https://github.com/KOWX712/Tricky-Addon-Update-Target-List/blob/cf167849aaa7696972a3c7826ec94294e9e47fce/module/prop.sh)。
+- [OMK b12557c：32-byte trust 值及运行时重载](https://github.com/qwq233/OhMyKeymint/blob/b12557c1569ed15150acd7886c825de500fc9ee9/src/config.rs)，对应 [构建制品 12147111988](https://github.com/qwq233/OhMyKeymint/actions/runs/39155552658/artifacts/12147111988)。
+- [WebUI X Portable ff81674c：KernelSU 兼容 spawn 回调](https://github.com/MMRLApp/WebUI-X-Portable/blob/ff81674ce61b1d7a4cfcdb29736ec022968fc651/app/src/main/java/com/dergoogler/mmrl/wx/ui/webui/interfaces/ksu/KernelSUInterface.kt)：先发送输出，再报告 exit，非零退出随后报告 error；共用桥接保持该协议，不因失败重试写操作。
+
 ## 可复现验证与限制
 
 独立 Rust 测试覆盖未知字段、API 值保留、Provider 默认值、只读规则诊断、shell 元字符迁移、Zygisk 误判、超时与取消。
@@ -77,5 +103,12 @@ Android 13 及以上的 Basic 要求证明的 root of trust 由 Google 提供；
 `python3 scripts/test-play-integrity-java.py` 在主机 JVM 验证实际 Build 值转换，包括规范化布尔值、数值边界和非法值。
 WebUI 的真实后端契约与浏览器流程覆盖预览、字段编辑、导入、应用失败恢复与多语言。
 
-这些检查不验证 Google 服务端判定。当前没有连接设备；Zygisk 注入、属性 hook 覆盖、OEM 启动、
-SELinux 权限影响、各 root／挂载实现、实时 Canary 元数据与实际进程重启仍需真机验收。
+`python3 scripts/test-integrity-conflicts-device.py --serial emulator-5554` 在一次性 rooted AVD 上验证已安装模块。
+验收环境为 Android API 36 arm64、内核 6.6.66、KernelSU 3.3.0 late-load，以及上述 OMK 构建制品。
+覆盖实时属性读回、hash／策略同步、独立策略保留、补丁事务、旧页面拒绝覆盖、非法输入无副作用及独立停用；
+检查 OMK 进程仍存在且无配置解析错误，退出时恢复所改配置文件。脚本只接受 emulator serial；已应用实时属性需重启清除。
+`DUCK_KSU_TOKEN=... pnpm --dir ui test:device --grep 'native WebUI bridge'` 使用已配置调试和 token 的 KernelSU Manager，
+验证真实 WebUI 的 hash 输入、保存、实时属性与 OMK 策略读回、清空及重启提示；测试结束恢复所改设置。
+
+这些检查不验证 Google 服务端判定。AVD 不证明物理设备上的 Zygisk 注入、完整属性 hook 覆盖、OEM 指纹／显示行为、
+硬件 TEE、SELinux 权限影响或其他 root／挂载实现兼容；实时 Canary 元数据及上述硬件行为仍需真机验收。

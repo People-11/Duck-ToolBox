@@ -18,7 +18,7 @@ import QueryState from "@/core/components/QueryState.vue"
 import SectionCard from "@/core/components/SectionCard.vue"
 import { notifySuccess } from "@/core/notify"
 
-import { trickyStoreApi } from "../api"
+import { trickyStoreApi, type Status } from "../api"
 import { useTrickyI18n } from "../i18n"
 import { STATUS_KEY, useStatusQuery } from "../queries"
 
@@ -27,31 +27,49 @@ const client = useQueryClient()
 const status = useStatusQuery()
 const handler = ref(true)
 const bootHash = ref("")
+const expected = ref<Status["props"]>()
 
 watch(
   status.data,
-  (next) => {
+  (next, previous) => {
     if (!next) return
+    if (
+      previous &&
+      (handler.value !== previous.props.prop_handler_enabled ||
+        bootHash.value !== (previous.props.boot_hash ?? ""))
+    )
+      return
     handler.value = next.props.prop_handler_enabled
     bootHash.value = next.props.boot_hash ?? ""
+    expected.value = { ...next.props }
   },
   { immediate: true },
 )
 
 const hash = computed(() => bootHash.value.replace(/\s/g, "").toLowerCase())
-const invalid = computed(() => hash.value !== "" && !/^[0-9a-f]{64}$/.test(hash.value))
+const invalid = computed(
+  () => hash.value !== "" && !/^(?:[0-9a-f]{64}|[0-9a-f]{128})$/.test(hash.value),
+)
 
 const save = useMutation({
   mutationFn: () =>
     trickyStoreApi.saveProps({
       prop_handler_enabled: handler.value,
       boot_hash: hash.value || null,
+      expected: expected.value,
     }),
   meta: { errorTitle: () => t("ta.prompt_boot_hash_set_error") },
   onSuccess: (result) => {
+    handler.value = result.prop_handler_enabled
+    bootHash.value = result.boot_hash ?? ""
+    expected.value = {
+      prop_handler_enabled: result.prop_handler_enabled,
+      boot_hash: result.boot_hash,
+    }
+    const hint = result.synced_backend_policy ? `${t("props.synced")} ` : ""
     notifySuccess(
       result.boot_hash ? t("ta.prompt_boot_hash_set") : t("ta.prompt_saved_target"),
-      result.synced_backend_policy ? `${t("props.synced")} ${t("policy.restart")}` : undefined,
+      result.restart_required ? `${hint}${t("policy.restart")}` : undefined,
     )
     void client.invalidateQueries({ queryKey: STATUS_KEY })
   },

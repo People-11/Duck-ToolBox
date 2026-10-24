@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "Na inicialização, redefine as props de bootloader, Inicialização verificada e depuração para simular um dispositivo bloqueado.",
     "bootHashHint": "O verifiedBootHash do Key Attestation. Deixe em branco para parar de substituir o ro.boot.vbmeta.digest.",
-    "invalidHash": "Digite 64 caracteres hexadecimais",
+    "invalidHash": "Digite 64 / 128 caracteres hexadecimais",
     "synced": "Também gravado na política vb_hash do módulo"
   },
   "entry": {

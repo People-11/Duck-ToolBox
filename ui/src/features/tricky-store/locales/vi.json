@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "Mỗi lần khởi động, đặt lại các thuộc tính về trình tải khởi động, Khởi động đã xác minh và gỡ lỗi để giống một thiết bị đã khóa.",
     "bootHashHint": "Giá trị verifiedBootHash từ Key Attestation. Để trống để ngừng ghi đè ro.boot.vbmeta.digest.",
-    "invalidHash": "Nhập 64 ký tự thập lục phân",
+    "invalidHash": "Nhập 64 / 128 ký tự thập lục phân",
     "synced": "Cũng đã được ghi vào chính sách vb_hash của module"
   },
   "entry": {

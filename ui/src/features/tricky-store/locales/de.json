@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "Setzt beim Gerätestart die Props für Bootloader, Verified Boot und Debugging so zurück, dass sie wie bei einem gesperrten Gerät aussehen.",
     "bootHashHint": "verifiedBootHash aus der App Key Attestation. Lass das Feld leer, um ro.boot.vbmeta.digest nicht mehr zu überschreiben.",
-    "invalidHash": "Gib 64 Hexadezimalzeichen ein",
+    "invalidHash": "Gib 64 / 128 Hexadezimalzeichen ein",
     "synced": "Auch in die Richtlinie vb_hash des Moduls geschrieben"
   },
   "entry": {

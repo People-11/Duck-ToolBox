@@ -172,7 +172,7 @@ pub struct PolicySchema {
 }
 
 /// A backend's full configuration, decoded into the shared shape.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfigData {
     #[serde(default)]
     pub targets: Vec<TargetEntry>,
@@ -213,7 +213,7 @@ pub struct BackendDetection {
     pub active: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PropStatus {
     pub prop_handler_enabled: bool,
     pub boot_hash: Option<String>,
@@ -222,6 +222,9 @@ pub struct PropStatus {
 /// Request written by the WebUI's "Save" action.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct SaveRequest {
+    /// Configuration the editor read; reject stale writes from another settings page.
+    #[serde(default)]
+    pub expected_config: Option<ConfigData>,
     #[serde(default)]
     pub targets: Vec<TargetEntry>,
     #[serde(default)]

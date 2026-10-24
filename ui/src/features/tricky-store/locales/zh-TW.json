@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "開機時重設開機載入程式、Verified Boot 與偵錯相關屬性，讓裝置看起來處於鎖定狀態。",
     "bootHashHint": "填入 Key Attestation 顯示的 verifiedBootHash。留空則不再覆寫 ro.boot.vbmeta.digest。",
-    "invalidHash": "請輸入 64 個十六進位字元",
+    "invalidHash": "請輸入 64 / 128 個十六進位字元",
     "synced": "也已寫入模組的 vb_hash 策略"
   },
   "entry": {

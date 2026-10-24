@@ -33,16 +33,9 @@ struct Backup {
     #[serde(default)]
     restart_required: bool,
 }
-fn names(backend: Backend) -> &'static [&'static str] {
-    match backend {
-        Backend::TrickyStore => &["config.ini"],
-        Backend::TrickyStoreLegacy => &["target.txt", "security_patch.txt"],
-        Backend::TeeSimulator => &["config.json"],
-        Backend::OhMyKeymint => &["injector.toml", "config.toml"],
-    }
-}
 fn snapshot(ctx: &Context, dir: &str, backend: Backend) -> Result<Snapshot> {
-    names(backend)
+    crate::adapters::for_backend(backend)
+        .config_files()
         .iter()
         .map(|name| {
             let path = ctx.sysroot.path(format!("{dir}/{name}"));
@@ -126,6 +119,7 @@ fn proposed(backend: Backend, patch: &str) -> Result<Policy> {
     })
 }
 pub fn preview(ctx: &Context, request: &Request) -> Result<Value> {
+    let _lock = crate::config_lock::acquire(ctx)?;
     let (detection, adapter) = active_adapter(&ctx.sysroot)?;
     let before = adapter.read(&ctx.sysroot)?;
     let values = proposed(detection.backend, &request.patch)?;
@@ -143,6 +137,7 @@ pub fn preview(ctx: &Context, request: &Request) -> Result<Value> {
 }
 /// Render and durably back up a preview without changing live keystore files.
 pub fn prepare(ctx: &Context, request: &Request) -> Result<Value> {
+    let _lock = crate::config_lock::acquire(ctx)?;
     let (detection, adapter) = active_adapter(&ctx.sysroot)?;
     let before = snapshot(ctx, adapter.config_dir(), detection.backend)?;
     if revision(&before)? != request.revision {
@@ -153,8 +148,8 @@ pub fn prepare(ctx: &Context, request: &Request) -> Result<Value> {
     config
         .default_policy
         .extend(proposed(detection.backend, &request.patch)?);
-    config.default_policy =
-        crate::policy::sanitize(&adapter.policy_schema(), config.default_policy)?;
+    // Validate managed fields without dropping backend extensions from the snapshot.
+    crate::policy::sanitize(&adapter.policy_schema(), config.default_policy.clone())?;
     let restart = adapter
         .restart_keys()
         .iter()
@@ -194,6 +189,7 @@ fn backup_path(ctx: &Context, token: &str) -> Result<std::path::PathBuf> {
 }
 /// Publish only the adapter-rendered files recorded during preparation.
 pub fn commit_prepared(ctx: &Context, token: &str) -> Result<Value> {
+    let _lock = crate::config_lock::acquire(ctx)?;
     let path = backup_path(ctx, token)?;
     let saved: Backup = serde_json::from_str(&fs::read_to_string(&path)?)?;
     let (detection, adapter) = active_adapter(&ctx.sysroot)?;
@@ -266,6 +262,7 @@ fn private_backup(path: &std::path::Path, backup: &Backup) -> Result<()> {
     Ok(())
 }
 pub fn restore(ctx: &Context, request: &Request) -> Result<Value> {
+    let _lock = crate::config_lock::acquire(ctx)?;
     let path = backup_path(ctx, &request.backup)?;
     let backup: Backup = serde_json::from_str(&fs::read_to_string(&path)?)?;
     let (detection, adapter) = active_adapter(&ctx.sysroot)?;

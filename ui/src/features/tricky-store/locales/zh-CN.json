@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "开机时重置 Bootloader、Verified Boot 和调试相关属性，使其看起来像已锁定的设备。",
     "bootHashHint": "填写 Key Attestation 中的 verifiedBootHash。留空则不再覆盖 ro.boot.vbmeta.digest。",
-    "invalidHash": "请输入 64 位十六进制字符",
+    "invalidHash": "请输入 64 / 128 位十六进制字符",
     "synced": "也已写入模块的 vb_hash 策略"
   },
   "entry": {

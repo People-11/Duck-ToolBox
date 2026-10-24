@@ -23,6 +23,7 @@ export const useTrickyStore = defineStore("tricky-store", () => {
   const status = shallowRef<Status | null>(null)
   const draft = ref<Draft | null>(null)
   const saving = ref(false)
+  let expectedConfig: Status["config"] | undefined
 
   const baseline = computed(() => (status.value ? draftFromStatus(status.value) : null))
   const dirty = computed(
@@ -35,7 +36,10 @@ export const useTrickyStore = defineStore("tricky-store", () => {
     if (!discard && status.value === next && draft.value) return
     const keep = !discard && dirty.value
     status.value = next
-    if (!keep || !draft.value) draft.value = draftFromStatus(next)
+    if (!keep || !draft.value) {
+      draft.value = draftFromStatus(next)
+      expectedConfig = structuredClone(next.config)
+    }
   }
 
   function toggle(packageName: string) {
@@ -69,15 +73,16 @@ export const useTrickyStore = defineStore("tricky-store", () => {
       throw new DuckError("operation_pending", "A save is already running", "tricky-store.save")
     saving.value = true
     try {
-      const result = await trickyStoreApi.save(request)
+      const result = await trickyStoreApi.save({ ...request, expected_config: expectedConfig })
+      expectedConfig = result.config ?? {
+        targets: request.targets,
+        default_policy: request.default_policy,
+        per_app_policy: request.per_app_policy,
+      }
       if (status.value) {
         status.value = {
           ...status.value,
-          config: {
-            targets: request.targets,
-            default_policy: request.default_policy,
-            per_app_policy: request.per_app_policy,
-          },
+          config: expectedConfig,
           system_apps: request.system_apps,
           auto_add_new_apps: request.auto_add_new_apps,
         }

@@ -63,6 +63,7 @@ fn tricky_store_ini_round_trips_targets_and_modes() {
     let data = save(
         &fixture.ctx,
         SaveRequest {
+            expected_config: None,
             targets: vec![
                 TargetEntry {
                     package_name: "com.google.android.gms".into(),
@@ -283,4 +284,25 @@ fn patch_preview_apply_restore_preserves_each_backends_files() {
             assert_eq!(&fs::read(root.join(name)).unwrap(), bytes, "{id}: {name:?}");
         }
     }
+}
+
+#[test]
+fn stale_editor_cannot_undo_a_competing_patch_or_hash_change() {
+    let fixture = fixture("stale-config");
+    install_backend(&fixture.ctx.sysroot, "tricky_store", 246);
+    let previous = status(&fixture.ctx).unwrap().config;
+    let path = config_path(&fixture, "/data/adb/tricky_store/config.ini");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let changed = "[default_policy]\nos_patch = 202610\n\n[target]\ncom.new\n";
+    fs::write(&path, changed).unwrap();
+    let error = save(
+        &fixture.ctx,
+        SaveRequest {
+            expected_config: Some(previous),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("configuration changed"));
+    assert_eq!(fs::read_to_string(path).unwrap(), changed);
 }

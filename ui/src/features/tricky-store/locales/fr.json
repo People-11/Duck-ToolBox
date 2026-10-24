@@ -102,7 +102,7 @@
   "props": {
     "handlerHint": "Réinitialise au démarrage les propriétés du bootloader, du démarrage validé et de débogage pour qu’elles correspondent à un appareil verrouillé.",
     "bootHashHint": "Valeur verifiedBootHash indiquée par Key Attestation. Laissez vide pour ne plus remplacer ro.boot.vbmeta.digest.",
-    "invalidHash": "Saisissez 64 caractères hexadécimaux",
+    "invalidHash": "Saisissez 64 / 128 caractères hexadécimaux",
     "synced": "Également écrit dans la règle vb_hash du module"
   },
   "entry": {

@@ -11,7 +11,12 @@ use duck_core::{Context, Sysroot, fs::write_string_atomic};
 use duck_platform::props;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::TrickyError, model::PropStatus, service::active_adapter};
+use crate::{
+    adapters::ConfigAdapter,
+    error::TrickyError,
+    model::{ConfigData, PropStatus},
+    service::active_adapter,
+};
 
 pub const BOOT_HASH_FILE: &str = "/data/adb/boot_hash";
 pub const DISABLE_PROP_HANDLER_FILE: &str = "/data/adb/disable_prop_handler";
@@ -21,6 +26,8 @@ const VB_HASH_FIELD: &str = "vb_hash";
 
 #[derive(Debug, Deserialize)]
 pub struct PropRequest {
+    #[serde(default)]
+    pub expected: Option<PropStatus>,
     pub prop_handler_enabled: bool,
     #[serde(default)]
     pub boot_hash: Option<String>,
@@ -33,6 +40,7 @@ pub struct PropData {
     pub applied_boot_hash: bool,
     /// Whether the active backend's `vb_hash` policy was updated to the new hash.
     pub synced_backend_policy: bool,
+    pub restart_required: bool,
 }
 
 pub fn status(sysroot: &Sysroot) -> PropStatus {
@@ -43,6 +51,14 @@ pub fn status(sysroot: &Sysroot) -> PropStatus {
 }
 
 pub fn save(ctx: &Context, request: PropRequest) -> Result<PropData> {
+    let _lock = crate::config_lock::acquire(ctx)?;
+    if request
+        .expected
+        .as_ref()
+        .is_some_and(|expected| expected != &status(&ctx.sysroot))
+    {
+        anyhow::bail!("prop settings changed; refresh before saving");
+    }
     // Validate the entire request before changing either configuration file.
     let boot_hash = request
         .boot_hash
@@ -52,36 +68,90 @@ pub fn save(ctx: &Context, request: PropRequest) -> Result<PropData> {
         .map(normalize_boot_hash)
         .transpose()?;
     let sysroot = &ctx.sysroot;
-    let disable_path = sysroot.path(DISABLE_PROP_HANDLER_FILE);
-    if request.prop_handler_enabled {
-        remove_config_file(&disable_path)?;
+    // A handler-only save must not overwrite a separately configured backend hash.
+    let backend = if boot_hash != read_boot_hash(sysroot) {
+        boot_hash
+            .as_deref()
+            .map(|hash| prepare_backend_vb_hash(sysroot, hash))
+            .transpose()?
+            .flatten()
     } else {
-        write_string_atomic(&disable_path, "")?;
+        None
+    };
+    let disable_path = sysroot.path(DISABLE_PROP_HANDLER_FILE);
+    let hash_path = sysroot.path(BOOT_HASH_FILE);
+    let mut paths = vec![disable_path.clone(), hash_path.clone()];
+    if let Some((adapter, _)) = &backend {
+        paths.extend(
+            adapter
+                .config_files()
+                .iter()
+                .map(|name| sysroot.path(format!("{}/{name}", adapter.config_dir()))),
+        );
     }
-
-    let mut applied_boot_hash = false;
-    let mut synced_backend_policy = false;
-    match &boot_hash {
-        Some(hash) => {
-            write_string_atomic(&sysroot.path(BOOT_HASH_FILE), hash)?;
-            // Only touch live properties when managing the running system, not a test sysroot.
-            if sysroot.root() == std::path::Path::new("/") {
-                props::reset(VBMETA_DIGEST, hash)?;
-                props::rebuild_area(VBMETA_DIGEST);
-                applied_boot_hash = true;
+    let before = paths
+        .iter()
+        .map(|path| Ok((path.clone(), duck_core::fs::read_optional(path)?)))
+        .collect::<Result<Vec<_>>>()?;
+    let synced_backend_policy = backend.is_some();
+    let restart_required = request.prop_handler_enabled != status(sysroot).prop_handler_enabled
+        || (boot_hash.is_none() && hash_path.exists())
+        || synced_backend_policy;
+    let result = (|| -> Result<bool> {
+        if let Some((adapter, config)) = backend {
+            adapter.write(sysroot, &config)?;
+        }
+        match &boot_hash {
+            Some(hash) => write_string_atomic(&hash_path, hash)?,
+            None => remove_config_file(&hash_path)?,
+        }
+        if request.prop_handler_enabled {
+            remove_config_file(&disable_path)?;
+        } else {
+            write_string_atomic(&disable_path, "")?;
+        }
+        // Apply live state only after every configuration file was published.
+        if let Some(hash) = &boot_hash
+            && sysroot.root() == Path::new("/")
+        {
+            props::reset(VBMETA_DIGEST, hash)?;
+            props::rebuild_area(VBMETA_DIGEST);
+            return Ok(true);
+        }
+        Ok(false)
+    })();
+    let applied_boot_hash = match result {
+        Ok(applied) => applied,
+        Err(error) => {
+            let mut failures = Vec::new();
+            for (path, content) in &before {
+                let restored = match content {
+                    Some(content) => {
+                        duck_core::fs::write_bytes_preserving(path, content.as_bytes())
+                    }
+                    None => remove_config_file(path),
+                };
+                if let Err(error) = restored {
+                    failures.push(format!("{}: {error:#}", path.display()));
+                }
             }
-            synced_backend_policy = sync_backend_vb_hash(sysroot, hash)?;
+            if !failures.is_empty() {
+                return Err(error.context(format!(
+                    "settings recovery incomplete: {}",
+                    failures.join("; ")
+                )));
+            }
+            return Err(
+                error.context("settings save failed; original configuration files restored")
+            );
         }
-        None => {
-            remove_config_file(&sysroot.path(BOOT_HASH_FILE))?;
-        }
-    }
-
+    };
     Ok(PropData {
         prop_handler_enabled: request.prop_handler_enabled,
         boot_hash,
         applied_boot_hash,
         synced_backend_policy,
+        restart_required,
     })
 }
 
@@ -93,9 +163,11 @@ fn remove_config_file(path: &Path) -> Result<()> {
     }
 }
 
-fn sync_backend_vb_hash(sysroot: &Sysroot, hash: &str) -> Result<bool> {
+type BackendUpdate = (Box<dyn ConfigAdapter>, ConfigData);
+
+fn prepare_backend_vb_hash(sysroot: &Sysroot, hash: &str) -> Result<Option<BackendUpdate>> {
     let Ok((_, adapter)) = active_adapter(sysroot) else {
-        return Ok(false);
+        return Ok(None);
     };
     let has_field = adapter
         .policy_schema()
@@ -103,14 +175,26 @@ fn sync_backend_vb_hash(sysroot: &Sysroot, hash: &str) -> Result<bool> {
         .iter()
         .any(|field| field.key == VB_HASH_FIELD);
     if !has_field {
-        return Ok(false);
+        return Ok(None);
     }
+    // AVB accepts SHA-512, while some keystore backends require a 32-byte hash.
+    // Validate the backend's own contract before changing shared settings.
+    crate::policy::sanitize(
+        &adapter.policy_schema(),
+        [(VB_HASH_FIELD.to_owned(), hash.to_owned())].into(),
+    )?;
     let mut config = adapter.read(sysroot)?;
+    if config
+        .default_policy
+        .get(VB_HASH_FIELD)
+        .is_some_and(|value| value == hash)
+    {
+        return Ok(None);
+    }
     config
         .default_policy
         .insert(VB_HASH_FIELD.to_owned(), hash.to_owned());
-    adapter.write(sysroot, &config)?;
-    Ok(true)
+    Ok(Some((adapter, config)))
 }
 
 fn read_boot_hash(sysroot: &Sysroot) -> Option<String> {
@@ -124,14 +208,14 @@ fn read_boot_hash(sysroot: &Sysroot) -> Option<String> {
     (!hash.is_empty()).then(|| hash.to_ascii_lowercase())
 }
 
-/// The `verifiedBootHash` from KeyAttestation is a 64-character lowercase hex string.
+/// AVB supports SHA-256 and SHA-512 digests, represented as lowercase hex.
 fn normalize_boot_hash(hash: &str) -> Result<String> {
     let hash: String = hash.chars().filter(|ch| !ch.is_whitespace()).collect();
     let hash = hash.to_ascii_lowercase();
-    if hash.len() != 64 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+    if !matches!(hash.len(), 64 | 128) || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(TrickyError::InvalidPolicy {
             field: "boot_hash".into(),
-            reason: "expected 64 hexadecimal characters".into(),
+            reason: "expected 64 or 128 hexadecimal characters".into(),
         }
         .into());
     }
@@ -164,6 +248,10 @@ mod tests {
         );
         assert!(normalize_boot_hash("abc").is_err());
         assert!(normalize_boot_hash(&"z".repeat(64)).is_err());
+        assert_eq!(
+            normalize_boot_hash(&"CD".repeat(64)).unwrap(),
+            "cd".repeat(64)
+        );
         assert_eq!(
             normalize_boot_hash(&format!("{} \n {}", "AB".repeat(16), "CD".repeat(16))).unwrap(),
             format!("{}{}", "ab".repeat(16), "cd".repeat(16))
@@ -212,6 +300,7 @@ mod tests {
                 save(
                     &ctx,
                     PropRequest {
+                        expected: None,
                         prop_handler_enabled: !was_enabled,
                         boot_hash: Some("invalid".into()),
                     },
@@ -230,6 +319,7 @@ mod tests {
         let result = save(
             &ctx,
             PropRequest {
+                expected: None,
                 prop_handler_enabled: false,
                 boot_hash: Some(format!("{} \n {}", "AB".repeat(16), "AB".repeat(16))),
             },
@@ -242,6 +332,7 @@ mod tests {
         let result = save(
             &ctx,
             PropRequest {
+                expected: None,
                 prop_handler_enabled: true,
                 boot_hash: Some(" \n ".into()),
             },
@@ -263,6 +354,7 @@ mod tests {
             let error = save(
                 &ctx,
                 PropRequest {
+                    expected: None,
                     prop_handler_enabled: true,
                     boot_hash: None,
                 },
@@ -271,5 +363,120 @@ mod tests {
             assert!(error.to_string().contains(&path.display().to_string()));
             assert!(path.is_dir());
         }
+    }
+
+    fn omk(ctx: &Context, policy: &str) -> std::path::PathBuf {
+        let module = ctx.sysroot.path("/data/adb/modules/oh_my_keymint");
+        fs::create_dir_all(&module).unwrap();
+        fs::write(
+            module.join("module.prop"),
+            "id=oh_my_keymint\nversionCode=1\n",
+        )
+        .unwrap();
+        let config = ctx.sysroot.path("/data/misc/keystore/omk/config.toml");
+        fs::create_dir_all(config.parent().unwrap()).unwrap();
+        fs::write(&config, policy).unwrap();
+        config
+    }
+
+    #[test]
+    fn handler_only_save_preserves_independent_backend_policy() {
+        let root = tempfile::tempdir().unwrap();
+        let ctx = context(root.path());
+        let policy = "[trust]\nvb_hash=\"random\"\n";
+        let config = omk(&ctx, policy);
+        let hash = "ab".repeat(32);
+        fs::write(ctx.sysroot.path(BOOT_HASH_FILE), &hash).unwrap();
+        let result = save(
+            &ctx,
+            PropRequest {
+                expected: None,
+                prop_handler_enabled: false,
+                boot_hash: Some(hash),
+            },
+        )
+        .unwrap();
+        assert!(!result.synced_backend_policy);
+        assert_eq!(fs::read_to_string(&config).unwrap(), policy);
+    }
+
+    #[test]
+    fn backend_errors_are_checked_before_shared_settings_change() {
+        for (policy, new_hash) in [
+            ("[broken", "cd".repeat(32)),
+            ("[trust]\nvb_hash=\"auto\"\n", "cd".repeat(64)),
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let ctx = context(root.path());
+            let config = omk(&ctx, policy);
+            let hash_path = ctx.sysroot.path(BOOT_HASH_FILE);
+            fs::write(&hash_path, "ab".repeat(32)).unwrap();
+            assert!(
+                save(
+                    &ctx,
+                    PropRequest {
+                        expected: None,
+                        prop_handler_enabled: false,
+                        boot_hash: Some(new_hash),
+                    }
+                )
+                .is_err()
+            );
+            assert_eq!(fs::read_to_string(&config).unwrap(), policy);
+            assert_eq!(fs::read_to_string(&hash_path).unwrap(), "ab".repeat(32));
+            assert!(!ctx.sysroot.path(DISABLE_PROP_HANDLER_FILE).exists());
+        }
+    }
+
+    #[test]
+    fn partial_backend_write_restores_the_injector_and_shared_settings() {
+        let root = tempfile::tempdir().unwrap();
+        let ctx = context(root.path());
+        let config = omk(&ctx, "");
+        fs::remove_file(&config).unwrap();
+        let injector = config.with_file_name("injector.toml");
+        let original = "# retain exact formatting\nscoop = [\"com.original\"]\n";
+        fs::write(&injector, original).unwrap();
+        let hash_path = ctx.sysroot.path(BOOT_HASH_FILE);
+        fs::write(&hash_path, "ab".repeat(32)).unwrap();
+        let error = save(
+            &ctx,
+            PropRequest {
+                expected: None,
+                prop_handler_enabled: false,
+                boot_hash: Some("cd".repeat(32)),
+            },
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("original configuration files restored")
+        );
+        assert_eq!(fs::read_to_string(injector).unwrap(), original);
+        assert_eq!(fs::read_to_string(hash_path).unwrap(), "ab".repeat(32));
+        assert!(!config.exists());
+        assert!(!ctx.sysroot.path(DISABLE_PROP_HANDLER_FILE).exists());
+    }
+    #[test]
+    fn stale_prop_form_cannot_replace_external_shared_settings() {
+        let root = tempfile::tempdir().unwrap();
+        let ctx = context(root.path());
+        let previous = status(&ctx.sysroot);
+        let path = ctx.sysroot.path(BOOT_HASH_FILE);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "ab".repeat(32)).unwrap();
+        let error = save(
+            &ctx,
+            PropRequest {
+                expected: Some(previous),
+                prop_handler_enabled: false,
+                boot_hash: None,
+            },
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("prop settings changed"));
+        assert_eq!(fs::read_to_string(path).unwrap(), "ab".repeat(32));
+        assert!(!ctx.sysroot.path(DISABLE_PROP_HANDLER_FILE).exists());
     }
 }
