@@ -1,6 +1,11 @@
 name: Stable
 
 on:
+  # A stable version bump on main is an explicit release request.
+  push:
+    branches: [main]
+    paths:
+      - module/module.prop
   workflow_dispatch:
 
 permissions:

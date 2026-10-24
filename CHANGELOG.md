@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.1.8-stable - 2026-10-24
+
+### Play Integrity
+
+- Integrate a separately built Play Integrity Fork-derived engine with an opt-in
+  configuration workflow, generation of Pixel Canary candidates, compatibility
+  controls, diagnostics and history. Candidate generation and local configuration
+  do not guarantee any Google Play Integrity verdict.
+- Preview changes before applying configuration or optional keystore patch policies.
+  Support structured field editing, raw import/export, saved profiles, migration,
+  rollback, and confirmation before recovering an interrupted update.
+- Make engine activation and emergency disable independent from configuration reads,
+  including during errors and pending cleanup. Restore managed state when disabling.
+- Improve phone-sized layouts: consistent navigation, panels, editor controls and
+  preview alignment. Preserve drafts while switching tabs and correct Back behavior.
+
+### Reliability and updates
+
+- Paginate command history and diagnose empty backend responses.
+- Handle different fingerprint-generator output paths and improve its diagnostics.
+- Fall back to an English release download link when a Telegram ZIP exceeds the
+  Bot API's upload limit.
+
+### Licensing and verification
+
+- Keep the derived engine under GPLv3 with upstream notices, and retain the
+  independently implemented management interface under MIT.
+- Link to the immutable build commit for corresponding source rather than
+  embedding a duplicate source archive in the module.
+- Add independent engine compilation, packaging checks, contract tests and
+  mobile WebUI regression coverage to CI.
+
 ## 0.1.7-stable - 2026-10-19
 
 ### Tricky Store manager
