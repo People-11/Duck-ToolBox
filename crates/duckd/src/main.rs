@@ -2,6 +2,8 @@
 //! invocation prints exactly one JSON envelope on stdout.
 
 mod builtin;
+#[cfg(feature = "play-integrity")]
+mod integrity_transaction;
 
 use clap::{Arg, ArgAction, error::ErrorKind};
 use duck_core::{
@@ -11,6 +13,8 @@ use duck_core::{
 };
 
 static FEATURES: &[&dyn Feature] = &[
+    #[cfg(feature = "play-integrity")]
+    &integrity_transaction::FEATURE,
     #[cfg(feature = "rkp")]
     &duck_rkp::FEATURE,
     #[cfg(feature = "rkp-device")]
@@ -21,6 +25,8 @@ static FEATURES: &[&dyn Feature] = &[
     &duck_device_ids::FEATURE,
     #[cfg(feature = "tricky-store")]
     &duck_tricky_store::FEATURE,
+    #[cfg(feature = "play-integrity")]
+    &duck_play_integrity::FEATURE,
     #[cfg(feature = "system")]
     &duck_system::FEATURE,
 ];

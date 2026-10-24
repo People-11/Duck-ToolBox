@@ -171,6 +171,28 @@ function installed(source: string) {
 const mock: MockModule = {
   feature: { id: "tricky-store", contract: 1 },
   handlers: {
+    "tricky-store.patch.preview": (_args, _flags, input) => {
+      requireBackend()
+      const patch = (input as { patch: string }).patch
+      return {
+        backend,
+        patch,
+        revision: "mock-revision",
+        changes: [
+          {
+            key: "os_patch",
+            before: saved.default_policy.os_patch ?? null,
+            after: patch.slice(0, 7).replaceAll("-", ""),
+          },
+        ],
+      }
+    },
+    "tricky-store.patch.apply": () => {
+      if (query.get("patch-fail") === "1")
+        throw new MockFailure("backend_rule", "Patch fixture rejected")
+      return { backup: "mock-patch-backup", restart_required: false }
+    },
+    "tricky-store.patch.restore": () => ({ restored: true, restart_required: false }),
     "tricky-store.status": () => {
       const selected = new Map(saved.targets.map((target) => [target.package_name, target.mode]))
       return {

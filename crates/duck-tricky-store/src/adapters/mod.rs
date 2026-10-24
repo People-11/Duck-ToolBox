@@ -30,6 +30,10 @@ pub(crate) trait ConfigAdapter {
         &[]
     }
     fn read(&self, sysroot: &Sysroot) -> Result<ConfigData>;
+    /// Stage read-only prerequisites for validating a rendered configuration.
+    fn stage_dependencies(&self, _source: &Sysroot, _target: &Sysroot) -> Result<()> {
+        Ok(())
+    }
     fn write(&self, sysroot: &Sysroot, config: &ConfigData) -> Result<()>;
 }
 

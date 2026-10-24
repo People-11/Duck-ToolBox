@@ -8,6 +8,13 @@ changed, removed or added on its own.
 
 ## Tools
 
+- **Play Integrity**: an independently built GPLv3 engine derived from Play Integrity Fork,
+  with configuration previews, migration, fingerprint generation, compatibility settings and
+  diagnostics in the WebUI. It is enabled by default; injection requires Zygisk and a saved
+  nonempty configuration. Full-mode global scripts also wait for configuration; explicitly
+  selected scripts-only mode can run without a fingerprint. A separate stop control works
+  during tasks, invalid configuration and pending recovery; configuration is retained. The management code remains MIT; see [licensing boundaries](THIRD_PARTY_NOTICES.md).
+
 - **Tricky Store manager**: a complete port of KOWX712's
   [Tricky Addon: Update Target List](https://github.com/KOWX712/Tricky-Addon-Update-Target-List),
   for whichever keystore module is active:
@@ -205,6 +212,7 @@ update `update.json` to match the version and `duck-toolbox-<version>.zip` asset
 **KernelSU Modules repository.** The root `module.yaml` supplies the module listing
 metadata and selects `duck-toolbox-*.zip` release assets. Published ZIPs contain
 `module.prop` at their root; the current builds target Android API 26+ on arm64-v8a.
+The installer rejects other architectures before preparing runtime data.
 The repository must enable release immutability and be registered through the
 [KernelSU Modules developer portal](https://developers.kernelsu.org/).
 Nightly prereleases are checked and recorded but are not displayed as stable versions.
@@ -295,6 +303,66 @@ pnpm locales:import <Tricky-Addon>/webui/public/locales/strings   # refresh tran
 
 On Windows, `pwsh ./scripts/build.ps1 -PackageModule` builds everything with `cargo-ndk`
 and writes the module zip to `dist/`.
+
+The bundled Play Integrity engine additionally requires JDK 21, Android SDK / Build
+Tools 37 and NDK 30.0.16248370. Build it independently and validate both release channels:
+
+```sh
+python3 scripts/build-play-integrity.py
+cargo test --locked --manifest-path components/play-integrity/Cargo.toml
+python3 scripts/test-play-integrity-native.py
+python3 scripts/test-play-integrity-java.py
+python3 scripts/test-play-integrity-scripts.py
+python3 scripts/package-module.py --channel stable
+python3 scripts/package-module.py --channel nightly
+```
+
+Channel metadata is written into each ZIP without changing `module/module.prop`.
+Nightly packages use the repository's commit-count version code and `canary` suffix.
+The engine's source archive, dependency notices and licensing boundaries are checked
+before either package is created. See [the rule review](components/play-integrity/RULES.md)
+for the source references and required device validation.
+
+The power control uses `duckd play-integrity disable` (standalone:
+`pif-engine request disable`) and `play-integrity power` for status. Disable
+publishes a private stop token before configuration parsing or locking, cancels
+fingerprint generation, and attempts compatibility cleanup. The WebUI keeps
+this control outside the configuration form and its busy state. New enable
+requests acknowledge the current token, so an older request cannot override
+a later stop. Importing, generating or applying a configuration does not enable
+PIF. Recorded DenyList and SELinux-permission changes are restored only when
+the current state still matches the engine's expected state. External edits are
+preserved and incomplete cleanup can be retried. Magisk may terminate processes
+when DenyList entries are restored under enforcement. Historical changes without
+a record are never guessed. Persistent compatibility properties retain upstream
+restoration: recorded original values may overwrite later edits, as disclosed in
+the power control.
+
+Already injected hooks require restarting PI processes; active mount namespaces,
+ROM overlays and global properties require a device reboot. Disabling PIF restores
+the original toolbox property-handler path, whose own switch and boot-hash behavior
+remain independent. This control does not disable the keystore tools.
+
+Configuration and optional keystore patch updates use the backend's
+`integrity-transaction` contract (version 1). Backups and rendered candidates are
+saved before writes; a private, synced journal records which participants may
+have started. This is recoverable coordination, not a filesystem-wide atomic
+transaction. After an interruption, the home page and Play Integrity page show
+a recovery notice and require confirmation before restoring. New applications
+are blocked until recovery completes. Normal failures trigger immediate rollback.
+The keystore adapter owns its file mappings and restart requirements, including
+when restoring a patch policy.
+
+For recovery without the WebUI, use `duckd integrity-transaction status`, then
+`duckd integrity-transaction recover --stdin-json` with `{"confirmed":true}` on
+stdin after reviewing the journal. The journal lives under the toolbox data
+root at `var/integrity-transaction/journal.json`; participant backup tokens are
+retained there. Recovery accepts each prepared keystore file only if it matches
+its original or proposed content, so partial publication can be reversed.
+Unrelated edits cause refusal and leave the journal and backups available for
+manual inspection. Do not delete these files to dismiss an unresolved update.
+Filesystem durability still depends on the device and its storage implementation;
+real power-loss and root-manager behavior need device validation.
 
 **On a real KernelSU.** `scripts/device-test.sh <module zip>` prepares a disposable
 userdebug emulator (or any device with root adbd) and runs `ui/e2e-device` there:

@@ -23,8 +23,8 @@ else
 fi
 
 case "$ARCH" in
-  arm64 | x64) ui_print "- Device platform: $ARCH" ;;
-  *) abort "! Unsupported platform: $ARCH (arm64 or x64 required)" ;;
+  arm64) ui_print "- Device platform: $ARCH" ;;
+  *) abort "! Unsupported platform: $ARCH (this package requires arm64)" ;;
 esac
 
 if [ -z "$API" ] || [ "$API" -lt 26 ]; then
@@ -50,6 +50,13 @@ ui_print "- Preparing runtime directory at $DATA_ROOT"
 umask 077
 repair_runtime
 normalize_boot_hash
+
+if [ -f "$MODPATH/play-integrity/pif-engine" ]; then
+  chmod 0755 "$MODPATH/play-integrity/pif-engine"
+  PIF_ENGINE_MODULE="$MODPATH/play-integrity" \
+    "$MODPATH/play-integrity/pif-engine" stage setup >/dev/null 2>&1 \
+    || abort "! Play Integrity engine setup failed."
+fi
 
 ui_print " "
 ui_print "! Duck ToolBox is not part of Tricky Store, TEESimulator or OhMyKeymint."

@@ -10,4 +10,6 @@ export type {
   KeyboxInstallResult,
   KeyboxTarget,
   LocaleLoaders,
+  SecurityPatchPreview,
+  SecurityPatchTarget,
 } from "./types"

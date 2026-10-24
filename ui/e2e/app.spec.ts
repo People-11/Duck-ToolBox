@@ -4,6 +4,7 @@ test("lists every tool on the home page", async ({ page, open }) => {
   await open("/")
   for (const name of [
     "Tricky Store",
+    "Play Integrity",
     "RKP Workbench",
     "Device RKP Issuer",
     "TEE Attestation Extractor",

@@ -1,0 +1,47 @@
+/* Derived from Play Integrity Fork, osm0sis, chiteroman and contributors.
+ * Source: https://github.com/osm0sis/PlayIntegrityFork/tree/23ec56c2440c4fd1a5e893a23ef7861d6366a828
+ * SPDX-License-Identifier: GPL-3.0-only
+ * Modified 2026-10-23: independent engine packaging, bounded configuration and runtime operations.
+ */
+package es.chiteroman.playintegrityfix;
+
+import android.content.pm.PackageInfo;
+import android.content.pm.Signature;
+import android.os.Build;
+import android.os.Parcel;
+import android.os.Parcelable;
+
+public class CustomPackageInfoCreator implements Parcelable.Creator<PackageInfo> {
+    private final Parcelable.Creator<PackageInfo> originalCreator;
+    private final Signature spoofedSignature;
+
+    public CustomPackageInfoCreator(Parcelable.Creator<PackageInfo> originalCreator, Signature spoofedSignature) {
+        this.originalCreator = originalCreator;
+        this.spoofedSignature = spoofedSignature;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public PackageInfo createFromParcel(Parcel source) {
+        PackageInfo packageInfo = originalCreator.createFromParcel(source);
+        if (packageInfo.packageName.equals("android")) {
+            if (packageInfo.signatures != null && packageInfo.signatures.length > 0) {
+                packageInfo.signatures[0] = spoofedSignature;
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                if (packageInfo.signingInfo != null) {
+                    Signature[] signaturesArray = packageInfo.signingInfo.getApkContentsSigners();
+                    if (signaturesArray != null && signaturesArray.length > 0) {
+                        signaturesArray[0] = spoofedSignature;
+                    }
+                }
+            }
+        }
+        return packageInfo;
+    }
+
+    @Override
+    public PackageInfo[] newArray(int size) {
+        return originalCreator.newArray(size);
+    }
+}

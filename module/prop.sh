@@ -28,6 +28,12 @@ fi
 
 [ -f "$DISABLE_FLAG" ] && exit 0
 
+# The independently built engine owns overlapping sensitive properties when enabled.
+PIF_ENGINE="${0%/*}/play-integrity/pif-engine"
+if [ -x "$PIF_ENGINE" ] && "$PIF_ENGINE" active; then
+  exit 0
+fi
+
 # Replace the value when the prop exists and differs from the expected one.
 reset_expected() {
   current="$("$resetprop_bin" "$1")"

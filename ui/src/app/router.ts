@@ -12,6 +12,8 @@ declare module "vue-router" {
     titleKey?: string
     /** Title in the app bar only, without the headline above the page (full-height pages). */
     smallAppBar?: boolean
+    /** Explicit destination for the app bar back action on tab-based features. */
+    backTo?: string
   }
 }
 

@@ -20,6 +20,11 @@ const { t } = useI18n()
 const isHome = computed(() => route.name === "home")
 
 function back() {
+  // Tab navigation must not turn the app bar into a tab-history button.
+  if (route.meta.backTo) {
+    void router.replace(route.meta.backTo)
+    return
+  }
   if (window.history.state?.back) {
     router.back()
     return

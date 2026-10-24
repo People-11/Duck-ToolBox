@@ -34,6 +34,22 @@ Desktop.ini
 
 # Logs and temp files
 *.log
+components/play-integrity/android/.gradle/
+components/play-integrity/android/.kotlin/
+components/play-integrity/android/app/build/
+components/play-integrity/android/app/.cxx/
+components/play-integrity/target/
+module/play-integrity/
+module/zygisk/
+module/licenses/play-integrity/
+module/licenses/play-integrity-source.tar.gz
 *.tmp
 *.temp
 *.pid
+
+components/play-integrity/android/build/
+
+# Documentation copies assembled into the module payload
+/module/README.md
+/module/CHANGELOG.md
+/module/THIRD_PARTY_NOTICES.md

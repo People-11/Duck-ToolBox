@@ -124,9 +124,27 @@ const entrySchema = z.object({
 export type EntryStatus = z.infer<typeof entrySchema>
 
 const ts = (...args: string[]) => ["tricky-store", ...args]
+const patchPreviewSchema = z.object({
+  backend: z.string(),
+  patch: z.string(),
+  revision: z.string(),
+  changes: z.array(z.object({ key: z.string(), before: z.string().nullable(), after: z.string() })),
+})
 const keybox = (...args: string[]) => ts("keybox", ...args)
 
 export const trickyStoreApi = {
+  patchPreview: (patch: string) =>
+    duckd(ts("patch", "preview"), { input: { patch }, schema: patchPreviewSchema }),
+  patchApply: (preview: z.infer<typeof patchPreviewSchema>) =>
+    duckd(ts("patch", "apply"), {
+      input: preview,
+      schema: z.object({ backup: z.string(), restart_required: z.boolean() }),
+    }),
+  patchRestore: (backup: string) =>
+    duckd(ts("patch", "restore"), {
+      input: { backup },
+      schema: z.object({ restored: z.boolean(), restart_required: z.boolean() }),
+    }),
   status: () => duckd(ts("status"), { schema: statusSchema }),
   save: (request: SaveRequest) => duckd(ts("save"), { input: request, schema: savedSchema }),
 

@@ -6,6 +6,10 @@ MODDIR=${0%/*}
 MODULE_ID="duck-toolbox"
 DATA_ROOT="/data/adb/$MODULE_ID"
 
+if [ -x "$MODDIR/play-integrity/pif-engine" ]; then
+  "$MODDIR/play-integrity/pif-engine" stage uninstall >/dev/null 2>&1 || true
+fi
+
 # Entry links in keystore modules; the shell fallback covers a missing or broken binary.
 "$MODDIR/bin/duckctl.sh" tricky-store entry remove >/dev/null 2>&1
 for module in tricky_store oh_my_keymint teesim; do

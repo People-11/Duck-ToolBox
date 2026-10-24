@@ -222,3 +222,65 @@ fn save_rejects_invalid_policy_value() {
 
     assert!(error.to_string().contains("os_patch"));
 }
+
+#[test]
+fn patch_preview_apply_restore_preserves_each_backends_files() {
+    for (name, id, version, dir) in [
+        ("patch-ts", "tricky_store", 246, "/data/adb/tricky_store"),
+        (
+            "patch-legacy",
+            "tricky_store",
+            200,
+            "/data/adb/tricky_store",
+        ),
+        ("patch-tees", "teesim", 400, "/data/adb/teesim"),
+        ("patch-omk", "oh_my_keymint", 100, "/data/misc/keystore/omk"),
+    ] {
+        let fixture = fixture(name);
+        install_backend(&fixture.ctx.sysroot, id, version);
+        let root = fixture.ctx.sysroot.path(dir);
+        fs::create_dir_all(&root).unwrap();
+        if id == "teesim" {
+            fs::write(root.join("keybox.xml"), crate::keybox::AOSP_KEYBOX).unwrap();
+        }
+        if id == "oh_my_keymint" {
+            fs::write(root.join("config.toml"),"version = 2\n[trust]\nos_version = \"auto\"\nsecurity_patch = \"latest\"\nverified_boot_state = true\ndevice_locked = true\n").unwrap();
+        }
+        save(
+            &fixture.ctx,
+            SaveRequest {
+                targets: vec![TargetEntry {
+                    package_name: "com.example.keep".into(),
+                    mode: TargetMode::Auto,
+                }],
+                ..SaveRequest::default()
+            },
+        )
+        .unwrap();
+        let before: std::collections::BTreeMap<_, _> = fs::read_dir(&root)
+            .unwrap()
+            .map(|p| {
+                let p = p.unwrap().path();
+                (p.file_name().unwrap().to_owned(), fs::read(&p).unwrap())
+            })
+            .collect();
+        let mut request = crate::patch::Request {
+            patch: "2026-10-05".into(),
+            revision: String::new(),
+            backup: String::new(),
+        };
+        let preview = crate::patch::preview(&fixture.ctx, &request).unwrap();
+        request.revision = preview["revision"].as_str().unwrap().into();
+        let applied = crate::patch::apply(&fixture.ctx, &request).unwrap();
+        assert_eq!(
+            status(&fixture.ctx).unwrap().config.targets[0].package_name,
+            "com.example.keep"
+        );
+        assert!(crate::patch::apply(&fixture.ctx, &request).is_err());
+        request.backup = applied["backup"].as_str().unwrap().into();
+        crate::patch::restore(&fixture.ctx, &request).unwrap();
+        for (name, bytes) in &before {
+            assert_eq!(&fs::read(root.join(name)).unwrap(), bytes, "{id}: {name:?}");
+        }
+    }
+}

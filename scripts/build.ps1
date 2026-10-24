@@ -134,6 +134,10 @@ if (-not $SkipWeb) {
   Write-Host "WebUI output: $webrootIndex" -ForegroundColor Green
 }
 
+Invoke-Step "Building the independent Play Integrity engine" {
+  Invoke-Checked { python (Join-Path $PSScriptRoot "build-play-integrity.py") --sdk $SdkRoot } "Play Integrity engine build failed."
+}
+
 if ($PackageModule) {
   Invoke-Step "Packaging KernelSU module zip" {
     & $packageScript -BinaryPath $binaryRelativePath

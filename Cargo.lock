@@ -623,6 +623,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "duck-play-integrity"
+version = "0.1.7-stable"
+dependencies = [
+ "anyhow",
+ "clap",
+ "duck-core",
+ "libc",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "duck-rkp"
 version = "0.1.7-stable"
 dependencies = [
@@ -763,6 +775,7 @@ dependencies = [
  "duck-core",
  "duck-device-ids",
  "duck-platform",
+ "duck-play-integrity",
  "duck-rkp",
  "duck-rkp-device",
  "duck-system",

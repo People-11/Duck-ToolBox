@@ -107,6 +107,12 @@ export function installHost(device: Device = {}): Host {
     write(path.join(module, "module.prop"), device.moduleProp)
   }
   symlinkSync(duckdBinary, path.join(module, "bin/duckd"))
+  const engine =
+    process.env.PIF_ENGINE_BIN ?? path.join(repository, "target/pif-engine/debug/pif-engine")
+  if (existsSync(engine)) {
+    mkdirSync(path.join(module, "play-integrity"), { recursive: true })
+    symlinkSync(engine, path.join(module, "play-integrity/pif-engine"))
+  }
 
   const props = Object.entries(device.props ?? {}).map(([key, value]) => `${key}=${value}\n`)
   write(path.join(tools, "props.txt"), props.join(""))

@@ -13,7 +13,8 @@ path = "src/main.rs"
 
 # Each tool is an optional crate, so a build can ship any subset of them.
 [features]
-default = ["rkp", "rkp-device", "tee-attestation", "device-ids", "tricky-store", "system"]
+default = ["rkp", "rkp-device", "tee-attestation", "device-ids", "tricky-store", "play-integrity", "system"]
+play-integrity = ["dep:duck-play-integrity"]
 rkp = ["dep:duck-rkp"]
 rkp-device = ["dep:duck-rkp-device"]
 tee-attestation = ["dep:duck-tee-attestation"]
@@ -31,6 +32,7 @@ duck-rkp = { workspace = true, optional = true }
 duck-rkp-device = { workspace = true, optional = true }
 duck-tee-attestation = { workspace = true, optional = true }
 duck-system = { workspace = true, optional = true }
+duck-play-integrity = { workspace = true, optional = true }
 duck-tricky-store = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true

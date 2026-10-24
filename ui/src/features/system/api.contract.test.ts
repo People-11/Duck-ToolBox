@@ -20,11 +20,13 @@ describe.skipIf(!hasDuckd)("system API against the real duckd", CONTRACT, () => 
     host = installHost()
     const manifest = await featureManifest()
     expect(manifest.features.map((feature) => feature.id)).toEqual([
+      "integrity-transaction",
       "rkp",
       "rkp-device",
       "tee-attestation",
       "device-ids",
       "tricky-store",
+      "play-integrity",
       "system",
     ])
   })

@@ -27,11 +27,26 @@ export interface KeyboxTarget {
 
 /** Extension points. Features plug into each other only through these. */
 export interface Contributions {
+  securityPatchTargets?: SecurityPatchTarget[]
   keyboxTargets?: KeyboxTarget[]
   /** Extra sections rendered on the Settings page, in feature order. */
   settingsSections?: Component[]
   /** Cards rendered on the home page above the tool list. */
   homeWidgets?: Component[]
+}
+
+export interface SecurityPatchPreview {
+  backend: string
+  patch: string
+  revision: string
+  changes: { key: string; before: string | null; after: string }[]
+}
+
+/** Participant id identifies the backend composition contract; the keystore owns all writes. */
+export interface SecurityPatchTarget {
+  id: string
+  labelKey: string
+  preview(patch: string): Promise<SecurityPatchPreview | null>
 }
 
 export type ContributionKey = keyof Contributions

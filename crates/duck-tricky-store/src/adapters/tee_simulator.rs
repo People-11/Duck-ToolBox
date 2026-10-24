@@ -105,6 +105,31 @@ impl super::ConfigAdapter for TeeSimulatorAdapter {
             .unwrap_or_default())
     }
 
+    fn stage_dependencies(&self, source: &Sysroot, target: &Sysroot) -> Result<()> {
+        let root = read_root(source)?
+            .unwrap_or_else(|| json!({"profiles":{"default":{"keybox":"keybox.xml"}}}));
+        for profile in root
+            .get("profiles")
+            .and_then(Value::as_object)
+            .into_iter()
+            .flat_map(|p| p.values())
+        {
+            if let Some(name) = profile
+                .get("keybox")
+                .and_then(Value::as_str)
+                .filter(|name| is_safe_relative(name))
+            {
+                let relative = format!("{TEES_CONFIG_DIR}/{name}");
+                if source.path(&relative).is_file() {
+                    // Validation tests existence only; never duplicate private key material.
+                    let path = target.path(&relative);
+                    std::fs::create_dir_all(path.parent().context("no keybox parent")?)?;
+                    std::fs::write(path, b"")?;
+                }
+            }
+        }
+        Ok(())
+    }
     fn write(&self, sysroot: &Sysroot, config: &ConfigData) -> Result<()> {
         let existing = read_root(sysroot)?;
         if let Some(version) = existing

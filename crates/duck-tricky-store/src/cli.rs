@@ -26,6 +26,11 @@ fn dispatch<'a>(command: Command, ctx: &'a Context) -> BoxFuture<'a, CommandResu
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Preview, apply or restore only security patch policy through the active adapter.
+    Patch {
+        #[command(subcommand)]
+        command: PatchCommand,
+    },
     /// Detected backends, targets, packages, keybox and prop status.
     Status,
     /// Persist targets, policies, system apps and the auto-add toggle (JSON on stdin).
@@ -49,6 +54,13 @@ pub enum Command {
         #[command(subcommand)]
         command: EntryCommand,
     },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PatchCommand {
+    Preview(StdinArgs),
+    Apply(StdinArgs),
+    Restore(StdinArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -141,6 +153,31 @@ struct ContentRequest {
 
 pub async fn run(command: Command, ctx: &Context) -> CommandResult {
     match command {
+        Command::Patch { command } => {
+            let (args, operation, label) = match command {
+                PatchCommand::Preview(args) => (
+                    args,
+                    crate::patch::preview
+                        as fn(&Context, &crate::patch::Request) -> Result<serde_json::Value>,
+                    "tricky-store.patch.preview",
+                ),
+                PatchCommand::Apply(args) => (
+                    args,
+                    crate::patch::apply
+                        as fn(&Context, &crate::patch::Request) -> Result<serde_json::Value>,
+                    "tricky-store.patch.apply",
+                ),
+                PatchCommand::Restore(args) => (
+                    args,
+                    crate::patch::restore
+                        as fn(&Context, &crate::patch::Request) -> Result<serde_json::Value>,
+                    "tricky-store.patch.restore",
+                ),
+            };
+            read_stdin_json::<crate::patch::Request>(args.stdin_json)
+                .and_then(|request| operation(ctx, &request))
+                .into_command(label, code_of)
+        }
         Command::Status => service::status(ctx).into_command("tricky-store.status", code_of),
         Command::Save(args) => {
             let request = read_stdin_json::<SaveRequest>(args.stdin_json);

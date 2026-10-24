@@ -1,0 +1,43 @@
+Play Integrity Engine
+
+Derived from Play Integrity Fork by osm0sis, chiteroman and contributors:
+https://github.com/osm0sis/PlayIntegrityFork
+Revision: 23ec56c2440c4fd1a5e893a23ef7861d6366a828
+License: GNU General Public License, version 3.
+
+Modified 2026-10-24: independent process interface and build; bounded configuration,
+preview and recovery; isolated, cancellable fingerprint generation with verified
+HTTPS; lifecycle integration and non-destructive handling of conflicting modules.
+The in-process injection mechanisms and compatibility rules derive from upstream.
+Rule review preserves explicit SDK choices, defaults new Provider compatibility off,
+labels Canary heuristics, removes shell evaluation and checks root-runtime evidence.
+Build value conversion preserves normalized JSON booleans; generator process groups
+are reaped on cancellation, limits, errors and normal completion.
+Standalone output preserves permissions on existing external directories.
+Companion exchanges share a monotonic deadline, invalid UTF-8 is rejected, JNI text
+uses standard UTF-8 decoding, and empty stop tokens cannot acknowledge shutdown.
+Configuration lock guards explicitly release ownership despite inherited descriptors.
+Named configuration snapshots and manual test observations use bounded private
+storage. Read-only system/configuration comparison never infers runtime values or
+server verdicts. Snapshot selection always produces a fresh application preview.
+
+Original PIF concepts and mechanisms are credited upstream to kdrag0n's ProtonAOSP
+and Universal SafetyNet Fix. Boot scripts derive from Displax's USNF MOD fork.
+See upstream history for the original contributions. Existing copyright and
+license notices in source files remain authoritative.
+
+Dependencies retain their own licenses:
+- Gradle wrapper: Gradle contributors, Apache-2.0 (original notices retained).
+- Zygisk API header: John "topjohnwu" Wu, ISC.
+- nlohmann/json: Niels Lohmann and contributors, MIT.
+- local_cxa_atexit_finalize_impl: 5ec1cff and contributors, Apache-2.0.
+- ShadowHook: ByteDance and contributors, MIT, with notices for bundled dependencies.
+- AndroidHiddenApiBypass: LSPosed contributors, Apache-2.0.
+- libc++: LLVM contributors, Apache-2.0 WITH LLVM-exception (and included notices).
+- Rust dependencies: their original licenses, recorded in Cargo.lock and vendored source.
+
+The separately running Duck ToolBox management program and its independently
+written WebUI adapter retain MIT licensing. This notice does not relicense the
+engine, its derivatives or third-party dependencies as MIT.
+The archive's build-play-integrity.py and test-play-integrity-*.py build materials
+are covered by build-materials-MIT.txt, including their original copyright notice.
