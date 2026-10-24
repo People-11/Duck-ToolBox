@@ -303,6 +303,9 @@ pnpm locales:import <Tricky-Addon>/webui/public/locales/strings   # refresh tran
 
 On Windows, `pwsh ./scripts/build.ps1 -PackageModule` builds everything with `cargo-ndk`
 and writes the module zip to `dist/`.
+The Windows helper pins the WebUI to the current Git commit automatically. For
+manual WebUI builds set `VITE_PIF_SOURCE_COMMIT` to `git rev-parse HEAD` before
+running `pnpm build`; the module packager refuses moving-branch source links.
 
 The bundled Play Integrity engine additionally requires JDK 21, Android SDK / Build
 Tools 37 and NDK 30.0.16248370. Build it independently and validate both release channels:
