@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "Geräte-ID-Bereitstellung",
-    "description": "Geräte-IDs für die Attestierung in die vertrauenswürdige Keymaster-App von Qualcomm schreiben.",
-    "warning": "Das wurde bisher nur auf einigen OnePlus-Geräten mit Qualcomm-Chip getestet. Auf anderen Geräten ist das Ergebnis nicht garantiert, und ein echter Schreibvorgang ändert die von der Keymaster-TA attestierten IDs."
+    "description": "Attestierungs-Geräte-IDs über Qualcomm QSEECom oder MediaTek TrustKernel schreiben.",
+    "warning": "Das wurde bisher nur auf einigen OnePlus-Geräten mit Qualcomm-Chip getestet. Auf anderen Geräten ist das Ergebnis nicht garantiert, und ein echter Schreibvorgang ändert die von der Keymaster-TA attestierten IDs. TrustKernel ist experimentell. rkp_flag und attestation_ids werden separat geschrieben; Fehler können teilweise Änderungen hinterlassen. Die Prüfung bestätigt nur die Existenz der Objekte. MEID und QSEECom-TA-Pfade gelten hier nicht."
   },
   "form": {
     "main": "Kennungen",
@@ -26,7 +26,8 @@
     "reload": "Erneut vom Gerät laden",
     "provision": "Geräte-IDs schreiben",
     "provisionDry": "Probelauf starten",
-    "confirm": "Diese IDs jetzt in Keymaster schreiben? Das lässt sich mit Duck ToolBox nicht rückgängig machen."
+    "confirm": "Diese IDs jetzt in Keymaster schreiben? Das lässt sich mit Duck ToolBox nicht rückgängig machen.",
+    "trustkernelHint": "TrustKernel ist experimentell. rkp_flag und attestation_ids werden separat geschrieben; Fehler können teilweise Änderungen hinterlassen. Die Prüfung bestätigt nur die Existenz der Objekte. MEID und QSEECom-TA-Pfade gelten hier nicht."
   },
   "result": {
     "title": "Ergebnis",
@@ -38,7 +39,12 @@
     "taVersion": "TA-Version",
     "library": "Bibliothek",
     "report": "Bericht",
-    "notAvailable": "Nicht verfügbar"
+    "notAvailable": "Nicht verfügbar",
+    "backend": "Backend",
+    "verification": "Prüfumfang",
+    "existenceOnly": "Nur Existenz der Objekte",
+    "taAcknowledgement": "TA-Erfolgsbestätigung",
+    "omitted": "Nicht geschrieben"
   },
   "errors": {
     "missing_device_field": "Eine erforderliche Kennung ist leer."

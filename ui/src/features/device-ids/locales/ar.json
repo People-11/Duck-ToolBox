@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "كتابة معرّفات الجهاز",
-    "description": "كتابة معرّفات الجهاز الخاصة بالتصديق في تطبيق Keymaster الموثوق من Qualcomm.",
-    "warning": "لم تُختبر هذه الأداة إلا على بعض أجهزة OnePlus التي تعمل بمعالجات Qualcomm. النتائج على الأجهزة الأخرى غير مضمونة، كما أن الكتابة الفعلية تغيّر المعرّفات التي يصادق عليها Keymaster TA."
+    "description": "كتابة معرّفات مصادقة الجهاز عبر Qualcomm QSEECom أو MediaTek TrustKernel.",
+    "warning": "لم تُختبر هذه الأداة إلا على بعض أجهزة OnePlus التي تعمل بمعالجات Qualcomm. النتائج على الأجهزة الأخرى غير مضمونة، كما أن الكتابة الفعلية تغيّر المعرّفات التي يصادق عليها Keymaster TA. دعم TrustKernel تجريبي. تُكتب rkp_flag وattestation_ids بشكل منفصل؛ قد يترك الفشل كتابة جزئية. يتحقق الفحص من وجود الكائنات فقط. لا تنطبق MEID ومسارات TA الخاصة بـ QSEECom."
   },
   "form": {
     "main": "المعرّفات",
@@ -26,7 +26,8 @@
     "reload": "إعادة القراءة من الجهاز",
     "provision": "كتابة معرّفات الجهاز",
     "provisionDry": "بدء التشغيل التجريبي",
-    "confirm": "هل تريد كتابة هذه المعرّفات في Keymaster الآن؟ لا يمكن التراجع عن ذلك من خلال Duck ToolBox."
+    "confirm": "هل تريد كتابة هذه المعرّفات في Keymaster الآن؟ لا يمكن التراجع عن ذلك من خلال Duck ToolBox.",
+    "trustkernelHint": "دعم TrustKernel تجريبي. تُكتب rkp_flag وattestation_ids بشكل منفصل؛ قد يترك الفشل كتابة جزئية. يتحقق الفحص من وجود الكائنات فقط. لا تنطبق MEID ومسارات TA الخاصة بـ QSEECom."
   },
   "result": {
     "title": "النتيجة",
@@ -38,7 +39,12 @@
     "taVersion": "إصدار TA",
     "library": "المكتبة",
     "report": "التقرير",
-    "notAvailable": "غير متاح"
+    "notAvailable": "غير متاح",
+    "backend": "الواجهة الخلفية",
+    "verification": "نطاق التحقق",
+    "existenceOnly": "وجود الكائنات فقط",
+    "taAcknowledgement": "تأكيد نجاح TA",
+    "omitted": "لم تُكتب"
   },
   "errors": {
     "missing_device_field": "أحد المعرّفات المطلوبة فارغ."

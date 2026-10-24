@@ -61,8 +61,8 @@ changed, removed or added on its own.
     This method is adapted from [LazyBonesLZY's rkp-v1-oracle](https://github.com/LazyBonesLZY/rkp-v1-oracle)
     at revision `b28480c98c1256753aed140c6ff86d0336f55c45` (MIT; see `module/licenses/rkp-v1-oracle.txt`).
     MediaTek uses only this AIDL adapter. Native V1 and V2 require Qualcomm identification
-    as well as the vendor library and device node. MediaTek device ID provisioning is
-    not implemented; no patched vendor provisioning executable is bundled. Real-device
+    as well as the vendor library and device node. Device ID provisioning uses a separate
+    TrustKernel KPH adapter described below. Real-device
     compatibility and production server acceptance for MediaTek remain unverified.
   - Select `auto`, `v1`, `v2` or `v1-native` in the WebUI or with `rkp-device provision --protocol`.
     Automatic mode tries the available methods in order: V2, AIDL V1, then native V1.
@@ -115,8 +115,13 @@ changed, removed or added on its own.
     file so two base64 inputs fit the root manager's shell transport. Device acquisition
     and firmware patching are outside this feature's current capabilities; a local match
     does not prove server acceptance.
-- **Device ID Provisioner**: writes attestation device IDs into the Qualcomm Keymaster
-  trusted app through `libQSEEComAPI.so`, with a dry-run mode.
+- **Device ID Provisioner**: retains Qualcomm Keymaster provisioning through
+  `libQSEEComAPI.so` and supports experimental MediaTek TrustKernel provisioning through
+  KPH. Both paths auto-fill identifiers and support dry runs. TrustKernel prepares and
+  writes `rkp_flag` and `attestation_ids`, with private request files, bounded subprocesses,
+  executable hash validation and partial-write reports. Its existence check does not
+  verify payload equality; MEID entries are explicitly reported as omitted on this path.
+  See [backend contracts, binary provenance and compatibility limits](docs/trustkernel-provisioning.md).
 - **Module & updates**: version and device summary, stable and canary updates with
   changelog, output files, command history, uninstall and reboot.
 

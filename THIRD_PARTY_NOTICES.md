@@ -22,3 +22,9 @@ for as long as object code is distributed.
 
 Existing third-party notices, including `module/licenses/rkp-v1-oracle.txt`, remain
 applicable to their respective components.
+
+The separate TrustKernel KPH executable is pinned by `module/kph-metadata.json`.
+Its published-copy provenance and unresolved original-source, patch reproducibility
+and licensing limits are recorded in `module/licenses/kph-NOTICE.txt`. The root MIT
+license does not establish terms for that vendor binary. Hash validation identifies
+the reviewed bytes; firmware and vendor-library compatibility remain unverified.

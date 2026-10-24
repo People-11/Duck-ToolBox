@@ -66,7 +66,7 @@ mod tests {
             ..DeviceIdsProfile::default()
         };
 
-        let command = build(&collect_ids(&profile).unwrap()).unwrap();
+        let command = build(&collect_ids(&profile, crate::Backend::Qseecom).unwrap()).unwrap();
 
         // Captured from the original hand-rolled CBOR encoder to lock the wire format.
         let expected = "0a220000a916083a6ffffd3946676f6f676c653a6ffffd38456875736b793a6ffffd374568\
@@ -88,7 +88,7 @@ mod tests {
             ..DeviceIdsProfile::default()
         };
 
-        let command = build(&collect_ids(&profile).unwrap()).unwrap();
+        let command = build(&collect_ids(&profile, crate::Backend::Qseecom).unwrap()).unwrap();
         assert_eq!(&command[..4], &0x220Au32.to_le_bytes());
     }
 }

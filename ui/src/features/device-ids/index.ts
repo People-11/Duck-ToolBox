@@ -7,6 +7,7 @@ import { NAMESPACE } from "./i18n"
 
 export default defineFeature({
   id: "device-ids",
+  contract: 2,
   namespace: NAMESPACE,
   icon: Fingerprint,
   order: 30,

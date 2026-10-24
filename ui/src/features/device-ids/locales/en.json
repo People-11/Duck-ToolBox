@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "Device ID Provisioner",
-    "description": "Write attestation device IDs into the Qualcomm Keymaster trusted app.",
-    "warning": "This has only been tested on some Qualcomm-based OnePlus devices. Results on other devices are not guaranteed, and a live write changes the IDs the Keymaster TA attests."
+    "description": "Write attestation device IDs through Qualcomm QSEECom or MediaTek TrustKernel.",
+    "warning": "This has only been tested on some Qualcomm-based OnePlus devices. Results on other devices are not guaranteed, and a live write changes the IDs the Keymaster TA attests. TrustKernel provisioning is experimental. It writes rkp_flag and attestation_ids separately; a failure can leave a partial write. Verification checks object existence. MEID and QSEECom TA locations do not apply."
   },
   "form": {
     "main": "Identifiers",
@@ -26,7 +26,8 @@
     "reload": "Reload from device",
     "provision": "Provision device IDs",
     "provisionDry": "Run dry run",
-    "confirm": "Write these IDs into Keymaster now? This cannot be undone from Duck ToolBox."
+    "confirm": "Write these IDs into Keymaster now? This cannot be undone from Duck ToolBox.",
+    "trustkernelHint": "TrustKernel provisioning is experimental. It writes rkp_flag and attestation_ids separately; a failure can leave a partial write. Verification checks object existence. MEID and QSEECom TA locations do not apply."
   },
   "result": {
     "title": "Result",
@@ -38,7 +39,12 @@
     "taVersion": "TA version",
     "library": "Library",
     "report": "Report",
-    "notAvailable": "Not available"
+    "notAvailable": "Not available",
+    "backend": "Backend",
+    "verification": "Verification",
+    "existenceOnly": "Object existence only",
+    "taAcknowledgement": "TA acknowledgement",
+    "omitted": "Not written"
   },
   "errors": {
     "missing_device_field": "A required identifier is empty."

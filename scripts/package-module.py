@@ -41,8 +41,21 @@ def check_source_checkout(commit, root=ROOT):
         raise ValueError("Corresponding-source checkout contains unpublished changes: " + dirty)
 
 
+def validate_kph(module=MODULE):
+    metadata = module / "kph-metadata.json"
+    require(metadata)
+    manifest = json.loads(metadata.read_text())
+    binary = module / "kph_patched"
+    elf(binary, 2, 183)
+    payload = binary.read_bytes()
+    if manifest["file"] != "kph_patched" or len(payload) != manifest["size"] or hashlib.sha256(payload).hexdigest() != manifest["sha256"]:
+        raise ValueError("KPH artifact hash or size mismatch")
+    require(module / "licenses/kph-NOTICE.txt")
+
+
 def validate():
     require(MODULE / "webroot/index.html")
+    validate_kph()
     require(MODULE / "play-integrity/build.json")
     manifest = json.loads((MODULE / "play-integrity/build.json").read_text())
     upstream = json.loads((ROOT / "components/play-integrity/UPSTREAM.json").read_text())
@@ -95,7 +108,7 @@ def main():
         shutil.copy2(binary, destination)
     for name in ["README.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md"]:
         shutil.copy2(ROOT / name, MODULE / name)
-    for binary_path in [MODULE / "bin/duckd", MODULE / "play-integrity/pif-engine"]:
+    for binary_path in [MODULE / "bin/duckd", MODULE / "play-integrity/pif-engine", MODULE / "kph_patched"]:
         if binary_path.exists():
             binary_path.chmod(0o755)
     validate()

@@ -1,6 +1,6 @@
 [package]
 name = "duck-device-ids"
-description = "Qualcomm Keymaster attestation device ID provisioning"
+description = "Attestation device ID provisioning through Qualcomm QSEECom and MediaTek TrustKernel"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,6 +15,9 @@ duck-core.workspace = true
 duck-platform.workspace = true
 hex.workspace = true
 libloading.workspace = true
+libc.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

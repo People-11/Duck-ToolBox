@@ -1,0 +1,12 @@
+{
+  "file": "kph_patched",
+  "size": 23080,
+  "sha256": "a8112084eccbf91f55368aca69c4cb656ed0a88859b0bdc66fcd8845dcc9f507",
+  "architecture": "aarch64",
+  "source": "https://github.com/benjamindaines/mtk-tk-ref/blob/af6ae11a1f28c172814c07d684bb7b6cd91f99f6/scripts/kph_patched",
+  "reviewed_pr_commit": "dfd42b390f6e2b4a4deb131ba5bc290579472516",
+  "build_id": "f9db589e002609e20f65683594b0b9c943ce625d",
+  "embedded_version": "app-commit-kph-v4.x-v4.0.0-18-g9768ead",
+  "patch": "Named-data import initializes a 128-byte context with first u32 equal to 42. The trampoline occupies undeclared RX page padding at file offset 0x48a0.",
+  "limitations": "Original stock binary, reproducible patch procedure, vendor dependencies and redistribution license were not supplied. The hash identifies the reviewed sample; it does not establish firmware compatibility or a security clearance."
+}

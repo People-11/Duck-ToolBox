@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "Penyediaan ID Perangkat",
-    "description": "Tulis ID perangkat untuk pengesahan ke aplikasi tepercaya Qualcomm Keymaster.",
-    "warning": "Fitur ini baru diuji di beberapa perangkat OnePlus berbasis Qualcomm. Hasil di perangkat lain tidak dijamin, dan penulisan nyata akan mengubah ID yang disahkan oleh TA Keymaster."
+    "description": "Tulis ID atestasi perangkat melalui Qualcomm QSEECom atau MediaTek TrustKernel.",
+    "warning": "Fitur ini baru diuji di beberapa perangkat OnePlus berbasis Qualcomm. Hasil di perangkat lain tidak dijamin, dan penulisan nyata akan mengubah ID yang disahkan oleh TA Keymaster. Dukungan TrustKernel bersifat eksperimental. rkp_flag dan attestation_ids ditulis terpisah; kegagalan dapat menyisakan penulisan parsial. Verifikasi hanya memeriksa keberadaan objek. MEID dan lokasi TA QSEECom tidak berlaku."
   },
   "form": {
     "main": "Pengenal",
@@ -26,7 +26,8 @@
     "reload": "Muat ulang dari perangkat",
     "provision": "Tulis ID perangkat",
     "provisionDry": "Jalankan simulasi",
-    "confirm": "Tulis ID ini ke Keymaster sekarang? Tindakan ini tidak dapat diurungkan dari Duck ToolBox."
+    "confirm": "Tulis ID ini ke Keymaster sekarang? Tindakan ini tidak dapat diurungkan dari Duck ToolBox.",
+    "trustkernelHint": "Dukungan TrustKernel bersifat eksperimental. rkp_flag dan attestation_ids ditulis terpisah; kegagalan dapat menyisakan penulisan parsial. Verifikasi hanya memeriksa keberadaan objek. MEID dan lokasi TA QSEECom tidak berlaku."
   },
   "result": {
     "title": "Hasil",
@@ -38,7 +39,12 @@
     "taVersion": "Versi TA",
     "library": "Pustaka",
     "report": "Laporan",
-    "notAvailable": "Tidak tersedia"
+    "notAvailable": "Tidak tersedia",
+    "backend": "Backend",
+    "verification": "Cakupan verifikasi",
+    "existenceOnly": "Hanya keberadaan objek",
+    "taAcknowledgement": "Konfirmasi keberhasilan TA",
+    "omitted": "Tidak ditulis"
   },
   "errors": {
     "missing_device_field": "Ada pengenal wajib yang kosong."

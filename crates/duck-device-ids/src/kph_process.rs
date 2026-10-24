@@ -1,0 +1,117 @@
+//! Bounded KPH process ownership; diagnostics are returned only for private reporting.
+use crate::DeviceIdsError;
+use anyhow::{Context, Result};
+use std::{
+    ffi::OsStr,
+    fs::{self, File},
+    io::Read,
+    os::unix::fs::{OpenOptionsExt, PermissionsExt},
+    path::{Path, PathBuf},
+    process::{Child, Command, ExitStatus, Stdio},
+    thread,
+    time::{Duration, Instant},
+};
+
+pub(crate) struct Runner {
+    pub executable: PathBuf,
+    pub directory: tempfile::TempDir,
+    pub timeout: Duration,
+}
+
+pub(crate) struct Output {
+    pub status: ExitStatus,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+impl Runner {
+    pub fn run<S: AsRef<OsStr>>(&self, args: &[S]) -> Result<Output> {
+        let output_path = self.directory.path().join("stdout");
+        let error_path = self.directory.path().join("stderr");
+        let open = |path: &Path| -> Result<Stdio> {
+            Ok(Stdio::from(
+                File::options()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .mode(0o600)
+                    .open(path)?,
+            ))
+        };
+        let child = Command::new(&self.executable)
+            .args(args)
+            .current_dir(self.directory.path())
+            .env(
+                "LD_LIBRARY_PATH",
+                "/system/lib64:/vendor/lib64:/odm/lib64:/vendor/lib64/hw:/odm/lib64/hw",
+            )
+            .stdin(Stdio::null())
+            .stdout(open(&output_path)?)
+            .stderr(open(&error_path)?)
+            .spawn()
+            .context("start KPH")?;
+        let mut child = Process(child);
+        let deadline = Instant::now() + self.timeout;
+        let status = loop {
+            if let Some(status) = child.0.try_wait()? {
+                break status;
+            }
+            if fs::metadata(&output_path)?.len() > 8192 || fs::metadata(&error_path)?.len() > 8192 {
+                anyhow::bail!("KPH diagnostic output exceeds 8192 bytes");
+            }
+            if Instant::now() >= deadline {
+                return Err(DeviceIdsError::Timeout.into());
+            }
+            thread::sleep(Duration::from_millis(10));
+        };
+        let read = |path: &Path| -> Result<String> {
+            let mut bytes = vec![];
+            File::open(path)?.take(8193).read_to_end(&mut bytes)?;
+            if bytes.len() > 8192 {
+                anyhow::bail!("KPH diagnostic output exceeds 8192 bytes");
+            }
+            Ok(String::from_utf8_lossy(&bytes).into_owned())
+        };
+        Ok(Output {
+            status,
+            stdout: read(&output_path)?,
+            stderr: read(&error_path)?,
+        })
+    }
+}
+
+struct Process(Child);
+impl Drop for Process {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+pub(crate) fn directory(parent: &Path) -> Result<tempfile::TempDir> {
+    fs::create_dir_all(parent)?;
+    Ok(tempfile::Builder::new()
+        .prefix("device-ids-")
+        .permissions(fs::Permissions::from_mode(0o700))
+        .tempdir_in(parent)?)
+}
+
+pub(crate) fn lock(parent: &Path) -> Result<File> {
+    fs::create_dir_all(parent)?;
+    let file = File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .mode(0o600)
+        .open(parent.join("device-ids.lock"))?;
+    match file.try_lock() {
+        Ok(()) => (),
+        Err(fs::TryLockError::WouldBlock) => return Err(DeviceIdsError::Busy.into()),
+        Err(fs::TryLockError::Error(error)) => {
+            return Err(error).context("lock device ID provisioning");
+        }
+    }
+    Ok(file)
+}

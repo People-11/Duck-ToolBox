@@ -60,6 +60,9 @@ class ShellEntrypointTest(unittest.TestCase):
         (root / "module/webroot").mkdir()
         (root / "module/module.prop").write_text("version=1.2.3\n")
         (root / "module/webroot/index.html").write_text("ui")
+        (root / "module/licenses").mkdir()
+        for name in ("kph_patched", "kph-metadata.json", "licenses/kph-NOTICE.txt"):
+            shutil.copy2(package.MODULE / name, root / "module" / name)
         for name in ("README.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md"):
             (root / name).write_text(name)
         wrapper = scripts / "package-module.sh"
@@ -87,6 +90,22 @@ class ShellEntrypointTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("play-integrity/build.json", result.stderr)
             self.assertEqual(list(root.glob("dist/*.zip")), [])
+
+    def test_pins_kph_bytes_and_checks_the_elf_abi(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            package.validate_kph(root / "module")
+            binary = root / "module/kph_patched"
+            payload = bytearray(binary.read_bytes())
+            payload[-1] ^= 1
+            binary.write_bytes(payload)
+            with self.assertRaisesRegex(ValueError, "hash or size mismatch"):
+                package.validate_kph(root / "module")
+            payload[18:20] = b"\x3e\x00"
+            binary.write_bytes(payload)
+            with self.assertRaisesRegex(ValueError, "Incorrect ELF ABI"):
+                package.validate_kph(root / "module")
 
 
 if __name__ == "__main__":

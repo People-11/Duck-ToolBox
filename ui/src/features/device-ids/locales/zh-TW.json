@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "裝置 ID 寫入工具",
-    "description": "將認證用的裝置 ID 寫入 Qualcomm Keymaster 受信任應用程式。",
-    "warning": "此功能僅在部分採用 Qualcomm 晶片的 OnePlus 裝置上測試過，無法保證在其他裝置上的結果；實際寫入會變更 Keymaster TA 所認證的 ID。"
+    "description": "透過高通 QSEECom 或聯發科 TrustKernel 寫入證明裝置 ID。",
+    "warning": "此功能僅在部分採用 Qualcomm 晶片的 OnePlus 裝置上測試過，無法保證在其他裝置上的結果；實際寫入會變更 Keymaster TA 所認證的 ID。 TrustKernel 寫入屬於實驗性支援。rkp_flag 與 attestation_ids 分別寫入，失敗時可能已完成部分寫入；驗證僅檢查物件是否存在。MEID 與 QSEECom TA 位置不適用。"
   },
   "form": {
     "main": "識別碼",
@@ -26,7 +26,8 @@
     "reload": "重新從裝置讀取",
     "provision": "寫入裝置 ID",
     "provisionDry": "開始模擬執行",
-    "confirm": "要立即將這些 ID 寫入 Keymaster 嗎？此操作無法在 Duck ToolBox 中復原。"
+    "confirm": "要立即將這些 ID 寫入 Keymaster 嗎？此操作無法在 Duck ToolBox 中復原。",
+    "trustkernelHint": "TrustKernel 寫入屬於實驗性支援。rkp_flag 與 attestation_ids 分別寫入，失敗時可能已完成部分寫入；驗證僅檢查物件是否存在。MEID 與 QSEECom TA 位置不適用。"
   },
   "result": {
     "title": "結果",
@@ -38,7 +39,12 @@
     "taVersion": "TA 版本",
     "library": "程式庫",
     "report": "報告",
-    "notAvailable": "無法取得"
+    "notAvailable": "無法取得",
+    "backend": "後端",
+    "verification": "驗證範圍",
+    "existenceOnly": "僅驗證物件存在",
+    "taAcknowledgement": "TA 確認成功",
+    "omitted": "未寫入"
   },
   "errors": {
     "missing_device_field": "有必填的識別碼未填寫。"

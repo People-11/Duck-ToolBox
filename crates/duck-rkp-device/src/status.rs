@@ -86,7 +86,7 @@ fn detect_with_properties(ctx: &Context, properties: &BTreeMap<String, String>) 
         }
         blockers.push("v1_unavailable");
     }
-    if let Some(blocker) = soc_detection.blocker() {
+    if let Some(blocker) = soc::blocker(&soc_detection) {
         blockers.push(blocker);
     }
 

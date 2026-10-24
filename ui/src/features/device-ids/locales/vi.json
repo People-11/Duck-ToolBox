@@ -1,8 +1,8 @@
 {
   "meta": {
     "title": "Trình ghi ID thiết bị",
-    "description": "Ghi ID thiết bị dùng cho chứng thực vào ứng dụng tin cậy Keymaster của Qualcomm.",
-    "warning": "Tính năng này mới chỉ được thử nghiệm trên một số thiết bị OnePlus dùng chip Qualcomm. Không đảm bảo kết quả trên các thiết bị khác, và việc ghi thực tế sẽ thay đổi các ID mà Keymaster TA chứng thực."
+    "description": "Ghi ID chứng thực thiết bị qua Qualcomm QSEECom hoặc MediaTek TrustKernel.",
+    "warning": "Tính năng này mới chỉ được thử nghiệm trên một số thiết bị OnePlus dùng chip Qualcomm. Không đảm bảo kết quả trên các thiết bị khác, và việc ghi thực tế sẽ thay đổi các ID mà Keymaster TA chứng thực. TrustKernel đang ở mức thử nghiệm. rkp_flag và attestation_ids được ghi riêng; lỗi có thể để lại dữ liệu ghi một phần. Việc kiểm tra chỉ xác nhận đối tượng tồn tại. MEID và đường dẫn TA của QSEECom không áp dụng."
   },
   "form": {
     "main": "Mã nhận dạng",
@@ -26,7 +26,8 @@
     "reload": "Đọc lại từ thiết bị",
     "provision": "Ghi ID thiết bị",
     "provisionDry": "Bắt đầu chạy thử",
-    "confirm": "Ghi các ID này vào Keymaster ngay bây giờ? Duck ToolBox không thể hoàn tác thao tác này."
+    "confirm": "Ghi các ID này vào Keymaster ngay bây giờ? Duck ToolBox không thể hoàn tác thao tác này.",
+    "trustkernelHint": "TrustKernel đang ở mức thử nghiệm. rkp_flag và attestation_ids được ghi riêng; lỗi có thể để lại dữ liệu ghi một phần. Việc kiểm tra chỉ xác nhận đối tượng tồn tại. MEID và đường dẫn TA của QSEECom không áp dụng."
   },
   "result": {
     "title": "Kết quả",
@@ -38,7 +39,12 @@
     "taVersion": "Phiên bản TA",
     "library": "Thư viện",
     "report": "Báo cáo",
-    "notAvailable": "Không có"
+    "notAvailable": "Không có",
+    "backend": "Backend",
+    "verification": "Phạm vi kiểm tra",
+    "existenceOnly": "Chỉ kiểm tra đối tượng tồn tại",
+    "taAcknowledgement": "TA xác nhận thành công",
+    "omitted": "Chưa ghi"
   },
   "errors": {
     "missing_device_field": "Có mã nhận dạng bắt buộc bị bỏ trống."

@@ -72,7 +72,7 @@ repair_runtime() {
   prepare_data_root
   maybe_migrate_legacy_var
 
-  for binary in "$MODPATH/bin/duckctl.sh" "$MODPATH/bin/duckd"; do
+  for binary in "$MODPATH/bin/duckctl.sh" "$MODPATH/bin/duckd" "$MODPATH/kph_patched"; do
     [ -f "$binary" ] && chmod 0755 "$binary"
   done
   chown -R 0:0 "$DATA_ROOT" 2>/dev/null
