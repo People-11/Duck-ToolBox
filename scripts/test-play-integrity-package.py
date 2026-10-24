@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Check that a matching old manifest cannot disguise stale build inputs."""
+"""Corresponding-source links must identify the exact published Git checkout."""
 import importlib.util
-import io
 from pathlib import Path
-import tarfile
+import subprocess
 import tempfile
 import unittest
 
@@ -12,52 +11,43 @@ package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)
 
 
-class SourceMaterialsTest(unittest.TestCase):
-    def test_requires_current_sources_and_build_materials(self):
+def git(root, *args):
+    return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
+
+
+class SourceCheckoutTest(unittest.TestCase):
+    def test_pins_clean_source_commit_and_rejects_local_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            engine = root / "engine"
+            git(root, "init", "-q")
+            engine = root / "components/play-integrity"
             scripts = root / "scripts"
-            engine.mkdir()
+            engine.mkdir(parents=True)
             scripts.mkdir()
             source = engine / "main.rs"
             source.write_text("original")
-            for name in ["build-play-integrity.py", "test-play-integrity-native.py", "test-play-integrity-java.py", "test-play-integrity-scripts.py"]:
-                (scripts / name).write_text("build material")
-            path = root / "source.tar"
-            with tarfile.open(path, "w") as archive:
-                archive.add(source, "play-integrity/main.rs")
-                for script in scripts.iterdir():
-                    archive.add(script, "play-integrity/" + script.name)
-            with tarfile.open(path) as archive:
-                package.check_source_materials(archive, engine, scripts)
-                source.write_text("edited after engine build")
-                with self.assertRaisesRegex(ValueError, "out of date"):
-                    package.check_source_materials(archive, engine, scripts)
-                source.write_text("original")
-                (engine / "new.rs").write_text("new module")
-                with self.assertRaisesRegex(ValueError, "missing"):
-                    package.check_source_materials(archive, engine, scripts)
-                (engine / "new.rs").unlink()
-                (scripts / "build-play-integrity.py").write_text("edited build input")
-                with self.assertRaisesRegex(ValueError, "out of date"):
-                    package.check_source_materials(archive, engine, scripts)
+            (scripts / "build-play-integrity.py").write_text("build")
+            git(root, "add", ".")
+            git(root, "-c", "user.name=CI", "-c", "user.email=ci@example.invalid",
+                "commit", "-qm", "Initial source")
+            commit = git(root, "rev-parse", "HEAD")
+            package.check_source_checkout(commit, root)
+            with self.assertRaisesRegex(ValueError, "commit differs"):
+                package.check_source_checkout("0" * 40, root)
+            source.write_text("changed after source commit")
+            with self.assertRaisesRegex(ValueError, "unpublished"):
+                package.check_source_checkout(commit, root)
+            source.write_text("original")
+            (scripts / "new-build-step.py").write_text("untracked")
+            with self.assertRaisesRegex(ValueError, "unpublished"):
+                package.check_source_checkout(commit, root)
+            (scripts / "new-build-step.py").unlink()
+            package.check_source_checkout(commit, root)
 
-    def test_rejects_non_file_source_members(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            source = root / "main.rs"
-            source.write_text("source")
-            stream = io.BytesIO()
-            with tarfile.open(fileobj=stream, mode="w") as archive:
-                entry = tarfile.TarInfo("play-integrity/main.rs")
-                entry.type = tarfile.SYMTYPE
-                entry.linkname = "/outside"
-                archive.addfile(entry)
-            stream.seek(0)
-            with tarfile.open(fileobj=stream) as archive:
-                with self.assertRaisesRegex(ValueError, "out of date"):
-                    package.check_source_materials(archive, root, root)
+    def test_rejects_invalid_commit_identifiers(self):
+        for value in (None, "", "main", "a" * 39, "z" * 40):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "invalid"):
+                package.check_source_checkout(value)
 
 
 if __name__ == "__main__":

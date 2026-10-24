@@ -183,7 +183,7 @@ pub fn status(engine: &Engine) -> Result<Value> {
         json!({"api":1,"upstream_revision":UPSTREAM,"options":opts,"has_config":has_config,"lifecycle_eligible":runtime_active,"zygisk_detected":zygisk,
         "conflicts":conflict,"reboot_required":reboot,"attachment":evidence,"boot":loaded,
         "state":if !opts["enabled"].as_bool().unwrap_or(true){"disabled"}else if !conflict.is_empty(){"conflict"}else if opts["mode"]=="scripts-only"{"scripts-only"}else if !has_config{"configuration-required"}else if !zygisk{"zygisk-unconfirmed"}else{"configured"},
-        "app_replace_list":if engine.data.join("custom.app_replace_list.txt").exists(){files::read(&engine.data.join("custom.app_replace_list.txt"))?}else{files::read(&engine.module.join("scripts/app_replace_list.txt"))?},"data_dir":engine.data,"source":"webroot/licenses/play-integrity-source.tar.gz","license":"licenses/play-integrity/GPL-3.0.txt","verdict_verified":false}),
+        "app_replace_list":if engine.data.join("custom.app_replace_list.txt").exists(){files::read(&engine.data.join("custom.app_replace_list.txt"))?}else{files::read(&engine.module.join("scripts/app_replace_list.txt"))?},"data_dir":engine.data,"source":"licenses/play-integrity/SOURCE.txt","license":"licenses/play-integrity/GPL-3.0.txt","verdict_verified":false}),
     )
 }
 fn prepare(engine: &Engine, input: &Value) -> Result<Value> {

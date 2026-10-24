@@ -71,6 +71,10 @@ def _render_caption(
         f"Branch: <b>{_escape_html(git_branch)}@{_escape_html(short_sha)}</b>",
         f'GitHub Action: <a href="{_escape_html(action_url)}">Open run</a>',
     ]
+    full_sha = os.environ.get("GIT_SHA", "").strip()
+    if len(full_sha) == 40 and all(c in "0123456789abcdef" for c in full_sha):
+        source_url = f"https://github.com/eltavine/Duck-ToolBox/tree/{full_sha}/components/play-integrity"
+        lines.append(f'<a href="{source_url}">Corresponding GPLv3 source</a>')
     return "\n".join(lines)
 
 

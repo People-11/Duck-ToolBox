@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Build the independent GPL engine, its notices and corresponding source archive."""
+"""Build the independent GPL engine with commit-pinned source references."""
 import argparse
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
@@ -52,35 +51,18 @@ def dependencies():
                 source.extract(member, destination, filter="data")
         (destination / ".revision").write_text(commit)
     # PIF deliberately disables shadowhook's linker initialization. Keep the patch
-    # in the vendored source archive, rather than downloading unrecorded build inputs.
+    # reproducible from this build script and its pinned upstream revision.
     linker = VENDOR / "shadowhook/shadowhook/src/main/cpp/sh_linker.c"
     value = linker.read_text()
     if "sh_linker_init_dummy" not in value:
         linker.write_text(value.replace("sh_linker_init", "sh_linker_init_dummy"))
 
 
-def source_archive(destination):
-    rust_vendor = ROOT / "target/play-integrity/rust-vendor"
-    run("cargo", "vendor", "--locked", "--manifest-path", ENGINE / "Cargo.toml", rust_vendor,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    with tarfile.open(destination, "w:gz") as archive:
-        for path in ENGINE.rglob("*"):
-            relative = path.relative_to(ENGINE)
-            if path.is_dir() or any(part in {".gradle", ".kotlin", ".cxx", "build", "target", "module", "vendor", ".git"} for part in relative.parts):
-                continue
-            archive.add(path, "play-integrity/" + relative.as_posix(), recursive=False)
-        archive.add(Path(__file__), "play-integrity/build-play-integrity.py")
-        for name in ["test-play-integrity-native.py", "test-play-integrity-java.py", "test-play-integrity-scripts.py"]:
-            archive.add(SCRIPT_DIR / name, f"play-integrity/{name}")
-        materials_license = SCRIPT_DIR / "build-materials-MIT.txt" if STANDALONE else ROOT / "LICENSE"
-        archive.add(materials_license, "play-integrity/build-materials-MIT.txt")
-        for name in DEPENDENCIES:
-            archive.add(VENDOR / name, f"play-integrity/vendor/{name}")
-        archive.add(rust_vendor, "play-integrity/vendor/rust")
-        config = b'[source.crates-io]\nreplace-with = "vendored-sources"\n[source.vendored-sources]\ndirectory = "vendor/rust"\n'
-        entry = tarfile.TarInfo("play-integrity/.cargo/config.toml")
-        entry.size = len(config)
-        archive.addfile(entry, io.BytesIO(config))
+def source_revision():
+    """The exact Git revision used for this engine build, not a moving branch."""
+    if STANDALONE:
+        return None
+    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
 
 
 def main():
@@ -144,11 +126,23 @@ def main():
                 shutil.copy2(path,destination)
     # Maven dependencies' license texts are kept with the source component.
     shutil.copytree(ENGINE / "licenses", notices, dirs_exist_ok=True)
-    source_archive(notices.parent / "play-integrity-source.tar.gz")
+    # Corresponding source lives in the exact published Git commit, not the module ZIP.
+    commit = source_revision()
+    if commit:
+        source_url = f"https://github.com/eltavine/Duck-ToolBox/tree/{commit}/components/play-integrity"
+        (notices / "SOURCE.txt").write_text(
+            f"Corresponding Play Integrity GPLv3 source (Git commit {commit}):\n"
+            f"{source_url}\n"
+            "Build and dependency retrieval script:\n"
+            f"https://github.com/eltavine/Duck-ToolBox/blob/{commit}/scripts/build-play-integrity.py\n"
+            "This script retrieves pinned dependency sources and applies the recorded ShadowHook change.\n"
+        )
+    (notices.parent / "play-integrity-source.tar.gz").unlink(missing_ok=True)
+    (ROOT / "module/webroot/licenses/play-integrity-source.tar.gz").unlink(missing_ok=True)
     artifacts = [*(p for p in payload.rglob("*") if p.is_file()), *zygisk.glob("*.so")]
     (payload / "build.json").write_text(json.dumps({
         "upstream_revision": json.loads((ENGINE / "UPSTREAM.json").read_text())["revision"],
-        "source_sha256": hashlib.sha256((notices.parent / "play-integrity-source.tar.gz").read_bytes()).hexdigest(),
+        "source_commit": commit,
         "files": {p.relative_to(ROOT / "module").as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in artifacts},
     }, indent=2) + "\n")
 

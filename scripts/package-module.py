@@ -7,7 +7,6 @@ from pathlib import Path
 import shutil
 import struct
 import subprocess
-import tarfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,22 +25,20 @@ def elf(path, width, machine):
         raise ValueError(f"Incorrect ELF ABI: {path}")
 
 
-def check_source_materials(archive, engine, scripts):
-    excluded = {".gradle", ".kotlin", ".cxx", "build", "target", "module", "vendor", ".git"}
-    materials = {
-        "play-integrity/" + path.relative_to(engine).as_posix(): path
-        for path in engine.rglob("*")
-        if path.is_file() and not any(part in excluded for part in path.relative_to(engine).parts)
-    }
-    for name in ["build-play-integrity.py", "test-play-integrity-native.py", "test-play-integrity-java.py", "test-play-integrity-scripts.py"]:
-        materials[f"play-integrity/{name}"] = scripts / name
-    for name, path in materials.items():
-        try:
-            member = archive.getmember(name)
-        except KeyError as error:
-            raise ValueError(f"Corresponding source is missing {name}; rebuild the engine") from error
-        if not member.isfile() or archive.extractfile(member).read() != path.read_bytes():
-            raise ValueError(f"Corresponding source is out of date: {name}; rebuild the engine")
+def check_source_checkout(commit, root=ROOT):
+    """Only distribute a binary whose GPL engine is available in the pinned Git tree."""
+    if not isinstance(commit, str) or len(commit) != 40 or any(c not in "0123456789abcdef" for c in commit):
+        raise ValueError("Missing or invalid corresponding-source commit")
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    if head != commit:
+        raise ValueError("Engine source commit differs from the packaging checkout")
+    dirty = subprocess.check_output(
+        ["git", "status", "--porcelain", "--untracked-files=all", "--",
+         "components/play-integrity", "scripts"],
+        cwd=root, text=True,
+    ).strip()
+    if dirty:
+        raise ValueError("Corresponding-source checkout contains unpublished changes: " + dirty)
 
 
 def validate():
@@ -65,28 +62,23 @@ def validate():
         raise ValueError("Invalid DEX payload")
     for name in ["GPL-3.0.txt", "NOTICE", "UPSTREAM.json", "zygisk-ISC.txt", "HiddenApiBypass-Apache-2.0.txt", "libcxx-Apache-2.0-with-LLVM-exception.txt"]:
         require(MODULE / "licenses/play-integrity" / name)
-    source = MODULE / "licenses/play-integrity-source.tar.gz"
-    public = MODULE / "webroot/licenses"
-    public.mkdir(exist_ok=True)
-    public_source = public / source.name
-    if not source.exists():
-        source = public_source
-    require(source)
-    if hashlib.sha256(source.read_bytes()).hexdigest() != manifest["source_sha256"]:
-        raise ValueError("Corresponding-source hash mismatch")
-    with tarfile.open(source) as archive:
-        check_source_materials(archive, ROOT / "components/play-integrity", ROOT / "scripts")
-        for name in ["Cargo.toml", "Cargo.lock", "LICENSE", "NOTICE", "RULES.md", "build-play-integrity.py", "build-materials-MIT.txt", "test-play-integrity-native.py", "test-play-integrity-java.py", "test-play-integrity-scripts.py", "tests/native.cpp", "tests/jni.cpp", "tests/FieldValueTest.java", "cli/src/main.rs", "cli/src/library.rs", "cli/src/inspection.rs", "cli/tests/library.rs", "cli/tests/interface.rs", "android/app/build.gradle.kts", "scripts/stage.sh", "vendor/json/LICENSE.MIT", ".cargo/config.toml"]:
-            member = archive.getmember(f"play-integrity/{name}")
-            if not member.isfile() or not member.size:
-                raise ValueError(f"Missing corresponding-source material: {name}")
-        recorded = json.load(archive.extractfile("play-integrity/UPSTREAM.json"))
-        if recorded["revision"] != manifest["upstream_revision"]:
-            raise ValueError("Corresponding-source upstream revision mismatch")
-        if archive.extractfile("play-integrity/build-materials-MIT.txt").read() != (ROOT / "LICENSE").read_bytes():
-            raise ValueError("Build-material license notice mismatch")
-    if source != public_source:
-        source.replace(public_source)
+    check_source_checkout(manifest.get("source_commit"))
+    source_url = (
+        "https://github.com/eltavine/Duck-ToolBox/tree/"
+        + manifest["source_commit"] + "/components/play-integrity"
+    )
+    source_notice = MODULE / "licenses/play-integrity/SOURCE.txt"
+    require(source_notice)
+    if source_url not in source_notice.read_text():
+        raise ValueError("Corresponding-source notice does not match the engine commit")
+    # The WebUI must link to the same immutable commit embedded in build.json.
+    if not any(
+        manifest["source_commit"].encode() in path.read_bytes()
+        for path in (MODULE / "webroot").rglob("*.js")
+    ):
+        raise ValueError("WebUI corresponding-source commit is missing or mismatched")
+    if any(MODULE.rglob("play-integrity-source.tar.gz")):
+        raise ValueError("Legacy corresponding-source archive must not be bundled")
 
 
 def main():

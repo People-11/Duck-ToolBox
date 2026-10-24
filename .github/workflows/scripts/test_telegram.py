@@ -33,6 +33,18 @@ class CaptionTests(unittest.TestCase):
         self.assertIn("Correct its configuration.", caption)
         self.assertIn("Author: <b>Contributor</b>", caption)
 
+    def test_full_sha_links_to_matching_gpl_source(self):
+        full_sha = "a" * 40
+        caption = self.caption(
+            COMMIT_MESSAGE="Release",
+            COMMIT_AUTHOR="Contributor",
+            GIT_SHA=full_sha,
+        )
+        self.assertIn(
+            f"https://github.com/eltavine/Duck-ToolBox/tree/{full_sha}/components/play-integrity",
+            caption,
+        )
+
     def test_manual_stable_reads_metadata_from_the_built_commit(self):
         with patch(
             "telegram.subprocess.check_output",

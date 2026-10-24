@@ -6,6 +6,9 @@ import { useIntegrityI18n } from "../i18n"
 import licenseText from "../license.txt?raw"
 const { t } = useIntegrityI18n()
 const show = ref(false)
+// CI embeds the immutable Git commit used to build the engine and the WebUI.
+const sourceCommit = import.meta.env.VITE_PIF_SOURCE_COMMIT || "main"
+const sourceUrl = `https://github.com/eltavine/Duck-ToolBox/tree/${sourceCommit}/components/play-integrity`
 </script>
 <template>
   <footer class="text-muted-foreground border-t px-4 py-5 text-center text-xs leading-6">
@@ -22,12 +25,7 @@ const show = ref(false)
         >{{ t("upstream") }}</Button
       >
       <Button variant="link" size="sm" @click="show = !show">GPLv3</Button>
-      <a
-        class="text-primary inline-flex min-h-10 items-center px-3 underline"
-        href="./licenses/play-integrity-source.tar.gz"
-        download
-        >{{ t("source") }}</a
-      >
+      <Button variant="link" size="sm" @click="openExternal(sourceUrl)">{{ t("source") }}</Button>
     </div>
     <p>{{ t("licenseScope") }}</p>
     <pre

@@ -95,7 +95,7 @@ jobs:
           python3 scripts/test-play-integrity-scripts.py
       - name: Engine scripts
         run: shellcheck -s bash --severity=error components/play-integrity/scripts/*.sh
-      - name: Build engine and corresponding source
+      - name: Build engine and commit-pinned source notice
         run: python3 scripts/build-play-integrity.py
       - uses: actions/upload-artifact@v7
         with:
@@ -104,7 +104,6 @@ jobs:
             module/play-integrity
             module/zygisk
             module/licenses/play-integrity
-            module/licenses/play-integrity-source.tar.gz
 
   android-backend:
     name: Android backend build
@@ -171,6 +170,8 @@ jobs:
       - name: Unit tests
         run: pnpm test
       - name: Type-check and bundle
+        env:
+          VITE_PIF_SOURCE_COMMIT: ${{ github.sha }}
         run: pnpm build
       - name: Upload WebUI bundle
         uses: actions/upload-artifact@v7
@@ -247,7 +248,7 @@ jobs:
         run: python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py'
       - name: Installer platform and API guards
         run: python3 scripts/test-module-install.py
-      - name: Corresponding-source freshness guards
+      - name: Corresponding-source checkout guards
         run: python3 scripts/test-play-integrity-package.py
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
@@ -339,9 +340,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          notes_file="$(mktemp)"
           if [ "${RELEASE_CHANNEL}" = stable ]; then
             tag="v${MODULE_VERSION}"
-            notes_file=CHANGELOG.md
+            cat CHANGELOG.md > "${notes_file}"
             release_flags=(--latest)
           else
             timestamp="$(python3 -c 'from datetime import datetime, timezone; print(datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))')"
@@ -353,6 +355,7 @@ jobs:
             } > "${notes_file}"
             release_flags=(--prerelease --latest=false)
           fi
+          printf '\nGPLv3 Play Integrity corresponding source (build commit): https://github.com/%s/tree/%s/components/play-integrity\n' "${GITHUB_REPOSITORY}" "${GITHUB_SHA}" >> "${notes_file}"
           gh release create "${tag}" "${MODULE_PATH}" \
             --target "${GITHUB_SHA}" \
             --title "${tag}" \

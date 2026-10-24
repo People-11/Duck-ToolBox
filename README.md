@@ -319,9 +319,14 @@ python3 scripts/package-module.py --channel nightly
 
 Channel metadata is written into each ZIP without changing `module/module.prop`.
 Nightly packages use the repository's commit-count version code and `canary` suffix.
-The engine's source archive, dependency notices and licensing boundaries are checked
-before either package is created. See [the rule review](components/play-integrity/RULES.md)
-for the source references and required device validation.
+Both release channels retain the GPLv3 license and dependency notices. The engine
+build records its exact Git commit, and packaging rejects a dirty or mismatched
+source checkout or WebUI source link. The installable ZIP does not include a
+second copy of the source. The WebUI, module license notice, Telegram notification
+and Release notes link to the matching commit under `components/play-integrity`.
+The pinned build/dependency script is `scripts/build-play-integrity.py`.
+See [the rule review](components/play-integrity/RULES.md) for original sources
+and required device validation.
 
 The power control uses `duckd play-integrity disable` (standalone:
 `pif-engine request disable`) and `play-integrity power` for status. Disable
