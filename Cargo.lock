@@ -586,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "duck-core"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "clap",
@@ -596,7 +596,7 @@ dependencies = [
 
 [[package]]
 name = "duck-device-ids"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "ciborium",
@@ -614,7 +614,7 @@ dependencies = [
 
 [[package]]
 name = "duck-platform"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "duck-core",
@@ -627,7 +627,7 @@ dependencies = [
 
 [[package]]
 name = "duck-play-integrity"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "clap",
@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "duck-rkp"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -675,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "duck-rkp-device"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "base64ct",
@@ -705,7 +705,7 @@ dependencies = [
 
 [[package]]
 name = "duck-system"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "clap",
@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "duck-tee-attestation"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "base64ct",
@@ -745,7 +745,7 @@ dependencies = [
 
 [[package]]
 name = "duck-tricky-store"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "base64ct",
@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "duckd"
-version = "0.1.8-stable"
+version = "0.2.0-Stable"
 dependencies = [
  "anyhow",
  "clap",

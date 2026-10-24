@@ -1,7 +1,7 @@
 {
   "name": "duck-tool-box-webui",
   "private": true,
-  "version": "0.1.8-stable",
+  "version": "0.2.0-Stable",
   "type": "module",
   "packageManager": "pnpm@12.6.0",
   "engines": {

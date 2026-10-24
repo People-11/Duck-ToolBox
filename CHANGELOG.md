@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.2.0-Stable - 2026-10-24
+
+### Integrity and keystore compatibility
+
+- Keep OEM lock-state and AVB property changes in their appropriate boot stages,
+  including when Play Integrity is disabled, unconfigured or falls back after a failure.
+- Validate SHA-256/SHA-512 boot hashes against backend requirements before saving.
+  Preserve independent OhMyKeymint trust settings when only the prop handler changes.
+- Serialize keystore configuration writes, restore failed updates, retain unknown
+  default and per-app policy fields, and reject stale configuration or backend selections.
+- Keep unsaved property and policy edits across background refreshes. Add explicit
+  property reload and report settings that require a reboot.
+- Align module disable/remove handling across the CLI, shell and native companion.
+  Reject invalid compatibility options consistently without changing saved enable intent.
+- Respect separate system, vendor and boot patch values when preparing optional
+  keystore synchronization. Retain explicit configurations and skip incompatible
+  single-date updates.
+
+### Device provisioning
+
+- Add MediaTek SoC detection, AIDL V1 RKP support and TrustKernel device-ID
+  provisioning while retaining Qualcomm-specific defaults and backend selection.
+- Refuse contradictory platform evidence and retain diagnostics for failed native
+  provisioning. Firmware support and successful hardware issuance remain device-specific.
+
+### Verification
+
+- Extend configuration rollback, lifecycle, native/JVM, contract and mobile WebUI
+  regression coverage, including API 36 AVD checks with KernelSU 3.3.0 and
+  OhMyKeymint 1.2.0-b12557c.
+- Local tests and emulator behavior do not establish Google Play Integrity verdicts
+  or physical-device TEE, fingerprint and display compatibility.
+
 ## 0.1.8-stable - 2026-10-24
 
 ### Play Integrity
