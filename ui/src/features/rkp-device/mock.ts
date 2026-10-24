@@ -17,6 +17,8 @@ function deviceStatus(): DeviceStatus {
     v2_available: true,
     aidl_apk: "/apex/com.android.rkpd/priv-app/rkpd/rkpdapp.apk",
     qualcomm_soc: true,
+    mediatek_soc: false,
+    trustkernel_present: false,
     library_path: "/vendor/lib64/libkeymasterdeviceutils.so",
     device_path: "/dev/smcinvoke",
     fingerprint: "google/husky/husky:15/AP3A.241005.015/1234567:user/release-keys",
@@ -52,12 +54,25 @@ function deviceStatus(): DeviceStatus {
       model: "PINEAPPLE",
       evidence: [{ source: "/sys/devices/soc0/family", value: "Snapdragon", vendor: "qualcomm" }],
     }
-  } else if (scenario === "other" || scenario === "conflict") {
+  } else if (scenario === "mediatek") {
     status.soc_manufacturer = "MediaTek"
     status.soc_detection = {
+      state: "media_tek",
+      model: "MT6878",
+      evidence: [{ source: "ro.soc.manufacturer", value: "MediaTek", vendor: "media_tek" }],
+    }
+  } else if (scenario === "other" || scenario === "conflict") {
+    status.soc_manufacturer = scenario === "other" ? "Samsung" : "MediaTek"
+    status.soc_detection = {
       state: scenario === "other" ? "other" : "conflicting",
-      model: scenario === "other" ? "MT6989" : "SM8650",
-      evidence: [{ source: "ro.soc.manufacturer", value: "MediaTek", vendor: "other" }],
+      model: scenario === "other" ? "Exynos 2400" : "SM8650",
+      evidence: [
+        {
+          source: "ro.soc.manufacturer",
+          value: scenario === "other" ? "Samsung" : "MediaTek",
+          vendor: scenario === "other" ? "other" : "media_tek",
+        },
+      ],
     }
     if (scenario === "conflict")
       status.soc_detection.evidence.push({
@@ -68,11 +83,13 @@ function deviceStatus(): DeviceStatus {
   }
   const blocker = {
     qualcomm: null,
+    media_tek: null,
     other: "qualcomm_soc_required",
     unknown: "soc_vendor_unknown",
     conflicting: "soc_vendor_conflict",
   }[status.soc_detection.state]
   status.qualcomm_soc = status.soc_detection.state === "qualcomm"
+  status.mediatek_soc = status.soc_detection.state === "media_tek"
   status.blockers = blocker ? [blocker] : []
   status.prerequisites_met = status.blockers.length === 0
   return status

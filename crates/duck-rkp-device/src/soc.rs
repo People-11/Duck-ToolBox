@@ -7,6 +7,7 @@ use serde::Serialize;
 #[serde(rename_all = "snake_case")]
 pub(crate) enum State {
     Qualcomm,
+    MediaTek,
     Other,
     Unknown,
     Conflicting,
@@ -16,6 +17,7 @@ pub(crate) enum State {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Vendor {
     Qualcomm,
+    MediaTek,
     Other,
 }
 
@@ -36,7 +38,7 @@ pub(crate) struct Detection {
 impl Detection {
     pub fn blocker(&self) -> Option<&'static str> {
         match self.state {
-            State::Qualcomm => None,
+            State::Qualcomm | State::MediaTek => None,
             State::Other => Some("qualcomm_soc_required"),
             State::Unknown => Some("soc_vendor_unknown"),
             State::Conflicting => Some("soc_vendor_conflict"),
@@ -64,6 +66,8 @@ pub(crate) fn detect(properties: &BTreeMap<String, String>, sysroot: &Sysroot) -
         ("ro.boot.hardware", Kind::Hardware),
         ("ro.board.platform", Kind::Hardware),
         ("ro.product.board", Kind::Hardware),
+        ("ro.hardware.chipname", Kind::Model),
+        ("ro.vendor.mediatek.platform", Kind::Hardware),
     ] {
         if let Some(value) = properties.get(source) {
             add(&mut evidence, source, value, kind);
@@ -87,14 +91,23 @@ pub(crate) fn detect(properties: &BTreeMap<String, String>, sysroot: &Sysroot) -
     let qualcomm = evidence
         .iter()
         .any(|item| item.vendor == Some(Vendor::Qualcomm));
+    let mediatek = evidence
+        .iter()
+        .any(|item| item.vendor == Some(Vendor::MediaTek));
     let other = evidence
         .iter()
         .any(|item| item.vendor == Some(Vendor::Other));
-    let state = match (qualcomm, other) {
-        (true, false) => State::Qualcomm,
-        (false, true) => State::Other,
-        (false, false) => State::Unknown,
-        (true, true) => State::Conflicting,
+    let vendor_count = [qualcomm, mediatek, other].iter().filter(|&&v| v).count();
+    let state = if vendor_count > 1 {
+        State::Conflicting
+    } else if qualcomm {
+        State::Qualcomm
+    } else if mediatek {
+        State::MediaTek
+    } else if other {
+        State::Other
+    } else {
+        State::Unknown
     };
     let model = evidence
         .iter()
@@ -120,10 +133,24 @@ fn add(evidence: &mut Vec<Evidence>, source: &'static str, value: &str, kind: Ki
     }
     let vendor = match kind {
         Kind::Manufacturer => manufacturer(value),
-        Kind::Model => qualcomm_model(value).then_some(Vendor::Qualcomm),
-        Kind::Hardware => {
-            manufacturer(value).or_else(|| qualcomm_model(value).then_some(Vendor::Qualcomm))
+        Kind::Model => {
+            if qualcomm_model(value) {
+                Some(Vendor::Qualcomm)
+            } else if mediatek_model(value) {
+                Some(Vendor::MediaTek)
+            } else {
+                None
+            }
         }
+        Kind::Hardware => manufacturer(value).or_else(|| {
+            if qualcomm_model(value) {
+                Some(Vendor::Qualcomm)
+            } else if mediatek_model(value) {
+                Some(Vendor::MediaTek)
+            } else {
+                None
+            }
+        }),
         Kind::Family => {
             if value.eq_ignore_ascii_case("snapdragon") {
                 Some(Vendor::Qualcomm)
@@ -159,8 +186,8 @@ fn manufacturer(value: &str) -> Option<Vendor> {
         "mediatek"
         | "mediatek inc"
         | "mediatek incorporated"
-        | "mtk"
-        | "samsung"
+        | "mtk" => Some(Vendor::MediaTek),
+        "samsung"
         | "samsung electronics"
         | "samsung electronics co ltd"
         | "exynos"
@@ -209,6 +236,25 @@ fn qualcomm_model(value: &str) -> bool {
                     .bytes()
                     .all(|byte| byte.is_ascii_uppercase())
         })
+}
+
+/// Matches MediaTek SoC model strings (MT6878, MT6789, MT6985, etc.).
+/// Format: "MT" followed by 4 digits, with an optional 1-2 character alpha suffix.
+fn mediatek_model(value: &str) -> bool {
+    let model = value.to_ascii_uppercase();
+    let (part, suffix) = model.split_once('/').unwrap_or((&model, ""));
+    if !suffix.is_empty() {
+        return false;
+    }
+    let Some(number) = part.strip_prefix("MT") else {
+        return false;
+    };
+    let digits = number.bytes().take_while(u8::is_ascii_digit).count();
+    (4..=4).contains(&digits)
+        && number.len() - digits <= 2
+        && number[digits..]
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase())
 }
 
 #[cfg(test)]

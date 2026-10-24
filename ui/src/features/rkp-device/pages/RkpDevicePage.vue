@@ -117,6 +117,7 @@ const statusRows = computed<Row[]>(() => {
       label: t("status.vendorOk"),
       value: {
         qualcomm: t("status.detected"),
+        media_tek: t("status.detected"),
         other: t("status.otherVendor"),
         unknown: t("status.unknown"),
         conflicting: t("status.conflicting"),

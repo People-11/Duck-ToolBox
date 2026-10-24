@@ -53,3 +53,4 @@ components/play-integrity/android/build/
 /module/README.md
 /module/CHANGELOG.md
 /module/THIRD_PARTY_NOTICES.md
+*.kate-swp

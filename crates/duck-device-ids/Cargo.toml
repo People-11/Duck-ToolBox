@@ -1,6 +1,6 @@
 [package]
 name = "duck-device-ids"
-description = "Qualcomm Keymaster attestation device ID provisioning"
+description = "Attestation device ID provisioning (Qualcomm QSEECom / MediaTek TrustKernel)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

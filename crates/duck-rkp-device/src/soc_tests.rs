@@ -55,8 +55,6 @@ fn recognizes_qualcomm_aliases_without_substring_false_positives() {
 #[test]
 fn known_other_vendors_are_distinct_from_unknown_values() {
     for vendor in [
-        "MediaTek",
-        "MTK",
         "Samsung Electronics Co., Ltd.",
         "Google",
         "HiSilicon",
@@ -75,6 +73,81 @@ fn known_other_vendors_are_distinct_from_unknown_values() {
         state(&[("ro.soc.manufacturer", "unlisted vendor")]),
         State::Unknown
     );
+}
+
+#[test]
+fn mediatek_vendors_resolve_to_mediatek_state() {
+    for vendor in ["MediaTek", "MTK", "mediatek inc", "MEDIATEK"] {
+        assert_eq!(
+            state(&[("ro.soc.manufacturer", vendor)]),
+            State::MediaTek,
+            "{vendor}"
+        );
+    }
+}
+
+#[test]
+fn mediatek_state_is_not_blocked() {
+    let root = tempfile::tempdir().unwrap();
+    let result = detect(
+        &properties(&[("ro.soc.manufacturer", "MediaTek")]),
+        &Sysroot::new(root.path()),
+    );
+    assert_eq!(result.state, State::MediaTek);
+    assert_eq!(result.blocker(), None);
+}
+
+#[test]
+fn mediatek_model_numbers_identify_the_soc() {
+    for model in ["MT6878", "MT6789", "MT6985", "MT6983V", "mt6878"] {
+        assert_eq!(
+            state(&[("ro.soc.model", model)]),
+            State::MediaTek,
+            "{model}"
+        );
+    }
+    for model in ["MT68", "MT68780", "MT-6878", "MTK6878", "MT6878/NZA"] {
+        assert_eq!(
+            state(&[("ro.soc.model", model)]),
+            State::Unknown,
+            "{model}"
+        );
+    }
+}
+
+#[test]
+fn mediatek_hardware_chipname_property_is_recognized() {
+    assert_eq!(
+        state(&[("ro.hardware.chipname", "MT6878")]),
+        State::MediaTek
+    );
+}
+
+#[test]
+fn mediatek_vendor_platform_property_is_recognized() {
+    assert_eq!(
+        state(&[("ro.vendor.mediatek.platform", "MT6878")]),
+        State::MediaTek
+    );
+}
+
+#[test]
+fn mediatek_trustkernel_device_properties_identify_correctly() {
+    // Simulates a Zinwa APhoneM16 (MT6878, TrustKernel T6 TEE) property set.
+    let root = tempfile::tempdir().unwrap();
+    let values = properties(&[
+        ("ro.soc.manufacturer", "MediaTek"),
+        ("ro.soc.model", "MT6878"),
+        ("ro.hardware.chipname", "MT6878"),
+        ("ro.hardware", "mt6878"),
+        ("ro.board.platform", "mt6878"),
+        ("ro.vendor.mediatek.platform", "MT6878"),
+    ]);
+    let result = detect(&values, &Sysroot::new(root.path()));
+    assert_eq!(result.state, State::MediaTek);
+    assert_eq!(result.model, "MT6878");
+    assert_eq!(result.blocker(), None);
+    assert!(result.evidence.len() >= 5);
 }
 
 #[test]
@@ -196,7 +269,7 @@ fn conflicting_sources_are_reported_instead_of_choosing_the_first() {
             &Sysroot::new(root.path())
         )
         .blocker(),
-        Some("qualcomm_soc_required")
+        None
     );
 }
 

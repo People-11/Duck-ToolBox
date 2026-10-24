@@ -2,7 +2,7 @@
   "meta": {
     "title": "Device RKP Issuer",
     "description": "Sign a P-256 key with this device's KeyMint TA and get an RKP certificate chain from Google, exported as keybox.xml.",
-    "warning": "This only works on some devices and only issues RKP certificates. It uses a private Qualcomm KeyMint ABI that may differ across firmware. An incompatible ABI can crash the worker or trusted app. The exported keybox contains a software-generated private key; keep the files private. Read the prerequisites before continuing."
+    "warning": "This only works on some devices and only issues RKP certificates. It uses a private KeyMint ABI (Qualcomm QSEE-COM or MediaTek TrustKernel) that may differ across firmware. An incompatible ABI can crash the worker or trusted app. The exported keybox contains a software-generated private key; keep the files private. Read the prerequisites before continuing."
   },
   "warning": {
     "title": "Before you continue"
@@ -18,7 +18,7 @@
     "platform": "Platform",
     "root": "Root access",
     "vendor": "SoC vendor",
-    "vendorOk": "Qualcomm SoC identification",
+    "vendorOk": "SoC identification",
     "library": "Keymaster library",
     "device": "Device node",
     "fingerprint": "Build fingerprint",
@@ -41,7 +41,7 @@
     "root_required": "Root access is required to reach the KeyMint trusted app.",
     "keymint_library_missing": "libkeymasterdeviceutils.so was not found in /vendor/lib64.",
     "smcinvoke_missing": "/dev/smcinvoke does not exist.",
-    "qualcomm_soc_required": "A non-Qualcomm SoC vendor was identified; this operation requires Qualcomm KeyMint.",
+    "qualcomm_soc_required": "An unsupported SoC vendor was identified; this operation requires Qualcomm or MediaTek KeyMint.",
     "fingerprint_missing": "The build fingerprint is missing, so the server cannot bind a challenge.",
     "soc_vendor_unknown": "The SoC vendor could not be identified from local properties or kernel information.",
     "soc_vendor_conflict": "Local SoC information conflicts. Review the detection evidence before continuing.",
@@ -80,7 +80,7 @@
   },
   "confirm": {
     "title": "Send a request to the KeyMint TA?",
-    "body": "This runs RKP (V1 / V2) on the device's Qualcomm KeyMint trusted app and submits the result to Google. It only works on some devices and only RKP certificates can be issued. The exported files contain a private key; keep them private. Continue?"
+    "body": "This runs RKP (V1 / V2) on the device's KeyMint trusted app and submits the result to Google. It only works on some devices and only RKP certificates can be issued. The exported files contain a private key; keep them private. Continue?"
   },
   "errors": {
     "acknowledgement_required": "The limitations were not acknowledged.",

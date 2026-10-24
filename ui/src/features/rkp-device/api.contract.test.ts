@@ -65,8 +65,14 @@ describe.skipIf(!hasDuckd)("device RKP API against the real duckd", CONTRACT, ()
       blocker: "soc_vendor_unknown",
     },
     {
-      name: "other vendor",
+      name: "MediaTek vendor",
       props: { "ro.soc.manufacturer": "MediaTek" },
+      state: "media_tek",
+      blocker: null,
+    },
+    {
+      name: "other vendor",
+      props: { "ro.soc.manufacturer": "Samsung" },
       state: "other",
       blocker: "qualcomm_soc_required",
     },
@@ -81,6 +87,7 @@ describe.skipIf(!hasDuckd)("device RKP API against the real duckd", CONTRACT, ()
     const status = await rkpDeviceApi.status()
     expect(status.soc_detection.state).toBe(state)
     expect(status.qualcomm_soc).toBe(state === "qualcomm")
+    expect(status.mediatek_soc).toBe(state === "media_tek")
     const socBlockers = status.blockers.filter((item) =>
       ["qualcomm_soc_required", "soc_vendor_unknown", "soc_vendor_conflict"].includes(item),
     )

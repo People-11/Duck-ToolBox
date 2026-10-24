@@ -10,6 +10,9 @@ use crate::{
 pub(crate) const LIBRARY_PATH: &str = "/vendor/lib64/libkeymasterdeviceutils.so";
 pub(crate) const DEVICE_PATH: &str = "/dev/smcinvoke";
 
+/// TrustKernel TEE kernel driver path, used by MediaTek devices with TrustKernel T6 TEE.
+pub(crate) const TRUSTKERNEL_DEVICE_PATH: &str = "/dev/tkcoredrv";
+
 /// The limitations every run reports. The CLI requires an explicit acknowledgement of
 /// both, and the WebUI shows them in a dialog before a request is sent.
 pub(crate) const LIMITATIONS: [&str; 2] = ["partial_device_support", "rkp_only"];
@@ -30,6 +33,8 @@ pub(crate) struct DeviceStatus {
     pub v2_available: bool,
     pub aidl_apk: Option<String>,
     pub qualcomm_soc: bool,
+    pub mediatek_soc: bool,
+    pub trustkernel_present: bool,
     pub library_path: &'static str,
     pub device_path: &'static str,
     pub fingerprint: String,
@@ -59,6 +64,8 @@ pub(crate) fn detect(ctx: &Context) -> DeviceStatus {
     let v2_available = library_present && device_present;
     let soc_detection = soc::detect(&properties, &ctx.sysroot);
     let qualcomm_soc = soc_detection.state == State::Qualcomm;
+    let mediatek_soc = soc_detection.state == State::MediaTek;
+    let trustkernel_present = ctx.sysroot.path(TRUSTKERNEL_DEVICE_PATH).exists();
 
     let mut blockers = Vec::new();
     for (passed, name) in [
@@ -94,6 +101,8 @@ pub(crate) fn detect(ctx: &Context) -> DeviceStatus {
         v2_available,
         aidl_apk,
         qualcomm_soc,
+        mediatek_soc,
+        trustkernel_present,
         library_path: LIBRARY_PATH,
         device_path: DEVICE_PATH,
         fingerprint,
