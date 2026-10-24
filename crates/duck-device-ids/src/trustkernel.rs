@@ -211,8 +211,8 @@ fn kph_import(api: &KphApi, uuid: &str, tag: &str, payload: &str) -> Result<()> 
         bail!(
             "kph_import_ta_data for {tag} returned {rc} (0x{rc:08x})",
             rc = rc
-        );
-    }
+        )
+    };
     Ok(())
 }
 
@@ -284,7 +284,7 @@ mod tests {
             ..DeviceIdsProfile::default()
         }
     }
-    Ok(())
+    Ok!(())
 }
 
     #[test]
@@ -353,4 +353,4 @@ mod tests {
         // Remainder must be zero.
         assert!(context[4..].iter().all(|&b| b == 0));
     }
-}
+
