@@ -109,6 +109,8 @@ def main():
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as output:
         for path in sorted(MODULE.rglob("*")):
             if path.is_file():
+                if path == MODULE / "play-integrity/build.json":
+                    continue  # build-time manifest, checked above; nothing reads it on the device
                 if path == MODULE / "module.prop" and args.channel:
                     output.writestr("module.prop", metadata)
                 else:

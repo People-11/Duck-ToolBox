@@ -30,6 +30,10 @@
   provider, signature, Play Store and verbose logging off) and remove the code behind
   the disabled ones: the KeyStore provider and signature spoofing classes, Play Store
   injection and verbose logging. Configurations no longer carry switch keys.
+- Trim the engine payload and data: drop the unused `killpi.sh`, keep the build-time
+  `build.json` manifest out of the module, keep only the newest generation job and
+  configuration backup, and remove the unread `boot.json`/`attachment.json` reboot
+  evidence from `status`.
 - Fingerprint generation downloads independent pages concurrently (Flash Tool and
   security bulletins from the start, factory and OTA pages together), cutting the
   sequential request chain from eight requests to five.

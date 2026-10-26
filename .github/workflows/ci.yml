@@ -202,6 +202,8 @@ jobs:
           cp README.md CHANGELOG.md module/
           mkdir -p dist
           python3 scripts/package-module.py --binary module/bin/duckd --output "dist/${name}.zip"
+          # The build-time manifest is checked by the packager and is not part of the module.
+          rm -f module/play-integrity/build.json
           {
             echo "MODULE_VERSION=${version}"
             echo "RELEASE_TAG=${tag}"

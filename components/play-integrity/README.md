@@ -44,7 +44,7 @@ Exit status is nonzero on failure.
 
 | Operation | Input / result |
 | --- | --- |
-| status | Prerequisites, conflicts, boot evidence and reboot requirement |
+| status | Prerequisites, conflicts and state |
 | config | Canonical prop/JSON content, entries and revision |
 | preview | content, format (auto/prop/json); returns changes, revision and suggested security patch |
 | prepare | Preview content plus revision; durably saves a backup token before publication |
@@ -55,8 +55,8 @@ Exit status is nonzero on failure.
 | restart | Restarts only DroidGuard and Play Store; reports each process result |
 
 Fingerprint tasks run in private directories and never install a candidate.
-Completed tasks retain their result and a bounded log; downloaded working files are
-removed. HTTPS (HTTP/1.1) uses certificate validation and a bounded response body; independent
+Only the newest task is kept, with its result and a bounded log; downloaded working
+files are removed. Applying a configuration keeps only the newest backup. HTTPS (HTTP/1.1) uses certificate validation and a bounded response body; independent
 pages are downloaded concurrently. A task's
 estimated expiry is upstream's heuristic, not proof of continued server acceptance.
 

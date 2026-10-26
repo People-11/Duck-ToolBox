@@ -21,11 +21,14 @@ const TIMEOUT: Duration = Duration::from_secs(120);
 pub fn start(engine: &Engine) -> Result<Value> {
     let _lock = files::Lock::acquire(&engine.data)?;
     let active = files::json_file(&engine.data.join("active-job.json"))?;
+    // A job removed with its directory is no longer running.
     if let Some(id) = active["id"].as_str()
-        && status(engine, id)?["state"] == "running"
+        && status(engine, id).is_ok_and(|state| state["state"] == "running")
     {
         bail!("fingerprint generation already running");
     }
+    // Only one job runs at a time and only the newest result is read; drop older jobs.
+    let _ = fs::remove_dir_all(engine.data.join("jobs"));
     let id = format!(
         "{}-{}",
         SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos(),

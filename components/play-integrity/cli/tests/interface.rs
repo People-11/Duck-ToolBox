@@ -53,6 +53,10 @@ fn generation_previews_without_publishing() {
     assert_eq!(started["ok"], true, "{started}");
     let result = terminal(root.path(), &started["data"]["id"]);
     assert_eq!(result["data"]["state"], "completed", "{result}");
+    let again = request(root.path(), "task-start", json!({}));
+    terminal(root.path(), &again["data"]["id"]);
+    let jobs = fs::read_dir(root.path().join("data/jobs")).unwrap().count();
+    assert_eq!(jobs, 1, "older jobs are dropped");
     assert_eq!(result["data"]["result"]["entries"]["MODEL"], "Fixture");
     assert_eq!(result["data"]["result"]["suggested_patch"], "2026-10-05");
     assert!(!root.path().join("data/custom.pif.json").exists());
@@ -185,7 +189,7 @@ fn magisk_directory_is_not_zygisk_runtime_evidence() {
 }
 
 #[test]
-fn lifecycle_uses_cleanup_when_disabled_and_records_boot_state() {
+fn lifecycle_uses_cleanup_when_disabled() {
     let root = fixture("exit 0\n");
     fs::write(
         root.path().join("module/scripts/stage.sh"),
@@ -209,9 +213,7 @@ fn lifecycle_uses_cleanup_when_disabled_and_records_boot_state() {
         fs::read_to_string(root.path().join("data/stage.trace")).unwrap(),
         "cleanup\n"
     );
-    let evidence: Value =
-        serde_json::from_slice(&fs::read(root.path().join("data/boot.json")).unwrap()).unwrap();
-    assert_eq!(evidence["active"], false);
+    assert!(!root.path().join("data/boot.json").exists());
 }
 
 #[cfg(unix)]
