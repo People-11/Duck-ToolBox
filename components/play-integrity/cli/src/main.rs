@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Play Integrity Fork derivative; see the engine LICENSE and UPSTREAM.json.
 // Modified 2026-10-24: independent CLI and versioned process interface.
-// Modified 2026-10-26: no standalone migration or activity probe commands.
+// Modified 2026-10-26: no standalone migration or activity probe commands; plain argument
+// parsing and a synchronous runtime for a smaller binary.
 mod command;
 mod config;
 mod denylist;
@@ -15,38 +16,17 @@ mod stages;
 mod tasks;
 
 use anyhow::{Result, bail};
-use clap::{Parser, Subcommand};
 use serde_json::{Value, json};
 use std::{
     io::{self, Read},
     path::PathBuf,
 };
 
-#[derive(Parser)]
-#[command(
-    version,
-    about = "Play Integrity engine: standalone configuration and runtime tools (GPLv3)"
-)]
-struct Cli {
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    /// Operations: status, config, preview, prepare, apply, restore, task-start,
-    /// task-status, restart. Optional JSON input on stdin.
-    Request { operation: String },
-    /// Run an installation, early-boot, late-boot or uninstall lifecycle stage.
-    Stage { phase: String },
-    /// HTTPS fetch adapter for the bundled fingerprint generator.
-    Fetch {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
-    },
-    #[command(hide = true)]
-    Worker { id: String },
-}
+const USAGE: &str = "Play Integrity engine (GPLv3)
+usage: pif-engine request OPERATION   status, config, preview, prepare, apply, restore,
+                                      task-start, task-status, restart; JSON on stdin
+       pif-engine stage PHASE         setup, early, late or uninstall
+       pif-engine fetch [OPTIONS] URL HTTPS fetch adapter for the fingerprint generator";
 
 #[derive(Clone)]
 pub struct Engine {
@@ -95,40 +75,45 @@ impl Engine {
     }
 }
 
-#[tokio::main]
-async fn main() {
-    let cli = Cli::parse();
-    if let Command::Fetch { args } = cli.command {
-        if let Err(error) = network::fetch(&args).await {
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let (command, rest) = match args.split_first() {
+        Some((command, rest)) => (command.as_str(), rest),
+        None => ("", &[][..]),
+    };
+    if command == "fetch" {
+        if let Err(error) = network::fetch(rest) {
             eprintln!("{error:#}");
             std::process::exit(1);
         }
         return;
     }
-    let result = async {
-        let engine = Engine::discover()?;
-        match cli.command {
-            Command::Worker { id } => tasks::work(&engine, &id),
-            Command::Stage { phase } => operations::stage(&engine, &phase),
-            Command::Request { operation } => {
-                let mut input = String::new();
-                io::stdin()
-                    .take(128 * 1024 + 1)
-                    .read_to_string(&mut input)?;
-                if input.len() > 128 * 1024 {
-                    bail!("input exceeds 128 KiB");
-                }
-                let request = if input.trim().is_empty() {
-                    json!({})
-                } else {
-                    serde_json::from_str(&input)?
-                };
-                operations::run(&engine, &operation, request)
-            }
-            Command::Fetch { .. } => unreachable!(),
+    let argument = match (command, rest) {
+        ("request" | "stage" | "worker", [argument]) => argument.as_str(),
+        _ => {
+            eprintln!("{USAGE}");
+            std::process::exit(2);
         }
-    }
-    .await;
+    };
+    let result = Engine::discover().and_then(|engine| match command {
+        "worker" => tasks::work(&engine, argument),
+        "stage" => operations::stage(&engine, argument),
+        _ => {
+            let mut input = String::new();
+            io::stdin()
+                .take(128 * 1024 + 1)
+                .read_to_string(&mut input)?;
+            if input.len() > 128 * 1024 {
+                bail!("input exceeds 128 KiB");
+            }
+            let request = if input.trim().is_empty() {
+                json!({})
+            } else {
+                serde_json::from_str(&input)?
+            };
+            operations::run(&engine, argument, request)
+        }
+    });
     match result {
         Ok(data) => println!("{}", json!({"ok":true,"api":1,"data":data})),
         Err(error) => {

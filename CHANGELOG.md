@@ -23,6 +23,12 @@
   Store. Failed refreshes are retried at most hourly; there are no other update checks.
 - Report the fingerprint state in `module.prop`, and link corresponding source to this
   fork, since the engine is modified.
+- Shrink the engine from about 5.4 MB to roughly a third: a synchronous HTTP/1.1 client
+  (ureq, rustls with ring) replaces tokio, reqwest and aws-lc, arguments are parsed
+  without clap, and the release profile optimizes for size.
+- Fingerprint generation downloads independent pages concurrently (Flash Tool and
+  security bulletins from the start, factory and OTA pages together), cutting the
+  sequential request chain from eight requests to five.
 
 ### Keybox renewal
 

@@ -3,6 +3,7 @@
 # Source: https://github.com/osm0sis/PlayIntegrityFork/tree/23ec56c2440c4fd1a5e893a23ef7861d6366a828
 # SPDX-License-Identifier: GPL-3.0-only
 # Modified 2026-10-24: independent engine packaging, bounded configuration and runtime operations.
+# Modified 2026-10-26: download independent pages concurrently; each is checked before use.
 
 if [ "$USER" != "root" -a "$(whoami 2>/dev/null)" != "root" ]; then
   echo "autopif4: need root permissions"; exit 1;
@@ -66,13 +67,18 @@ if [ "$DIR" = ${PIF_ENGINE_DATA} ]; then
 fi;
 cd "$DIR";
 
+# Pages that depend on nothing else load in the background while the Beta list is crawled.
+wget -q -T 10 -O PIXEL_FLASH_HTML "https://flash.android.com/" 2>&1 & FLASH_PID=$!;
+wget -q -T 10 -O PIXEL_SECBULL_HTML "https://source.android.com/docs/security/bulletin/pixel" 2>&1 & SECBULL_PID=$!;
+
 item "Crawling Android Developers for latest Pixel Beta device list ...";
 wget -q -T 10 -O PIXEL_VERSIONS_HTML "https://developer.android.com/about/versions" 2>&1 || exit 1;
 LATEST_BETA=$(grep -B4 -A2 'data-icon="preview' PIXEL_VERSIONS_HTML | grep -o 'href="/about/versions/.*[0-9]"' | cut -d\" -f2);
 [ "$LATEST_BETA" ] || LATEST_BETA=$(grep -oE 'href="/about/versions/[0-9]{2}"' PIXEL_VERSIONS_HTML | cut -d\" -f2 | sort -ru | head -n1);
 wget -q -T 10 -O PIXEL_LATEST_HTML "https://developer.android.com$LATEST_BETA" 2>&1 || exit 1;
-wget -q -T 10 -O PIXEL_FI_HTML "https://developer.android.com$(grep -o 'href=".*download.*"' PIXEL_LATEST_HTML | grep -v 'ota' | cut -d\" -f2 | sort -ru | head -n1)" 2>&1 || exit 1;
+wget -q -T 10 -O PIXEL_FI_HTML "https://developer.android.com$(grep -o 'href=".*download.*"' PIXEL_LATEST_HTML | grep -v 'ota' | cut -d\" -f2 | sort -ru | head -n1)" 2>&1 & FI_PID=$!;
 wget -q -T 10 -O PIXEL_OTA_HTML "https://developer.android.com$(grep -o 'href=".*download-ota.*"' PIXEL_LATEST_HTML | cut -d\" -f2 | sort -ru | head -n1)" 2>&1 || exit 1;
+wait $FI_PID || exit 1;
 SRC=FI; [ "$(grep 'tr id=' PIXEL_FI_HTML | sed 's;.*<tr id="\(.*\)">.*;\1;' | wc -w)" -lt "$(grep 'tr id=' PIXEL_OTA_HTML | sed 's;.*<tr id="\(.*\)">.*;\1;' | wc -w)" ] && SRC=OTA;
 MODEL_LIST="$(grep -A1 'tr id=' PIXEL_${SRC}_HTML | grep 'td' | sed 's;.*<td>\(.*\)</td>.*;\1;')";
 PRODUCT_LIST="$(grep 'tr id=' PIXEL_${SRC}_HTML | sed 's;.*<tr id="\(.*\)">.*;\1_beta;')";
@@ -105,7 +111,7 @@ echo "$MODEL ($PRODUCT)";
 
 get_canary_info() {
   item "Crawling Android Flash Tool for latest Pixel Canary build info ...";
-  wget -q -T 10 -O PIXEL_FLASH_HTML "https://flash.android.com/" 2>&1 || exit 1;
+  if [ "$FLASH_PID" ]; then wait $FLASH_PID || exit 1; FLASH_PID=; fi;
   wget -q -T 10 -O PIXEL_STATION_JSON --header "Referer: https://flash.android.com" "https://content-flashstation-pa.googleapis.com/v1/builds?product=$PRODUCT&key=$(grep -o '<body data-client-config=.*' PIXEL_FLASH_HTML | cut -d\; -f2 | cut -d\& -f1)" 2>&1 || exit 1;
   tac PIXEL_STATION_JSON | grep -m1 -A13 '"canary": true' > PIXEL_CANARY_JSON;
   ID="$(grep 'releaseCandidateName' PIXEL_CANARY_JSON | cut -d\" -f4)";
@@ -143,7 +149,7 @@ fi;
 item "Crawling Pixel Update Bulletins for corresponding security patch level ...";
 CANARY_ID="$(grep '"id"' PIXEL_CANARY_JSON | sed -e 's;.*canary-\(.*\)".*;\1;' -e 's;^\(.\{4\}\);\1-;')";
 [ -z "$CANARY_ID" ] && die "Failed to extract build info from JSON";
-wget -q -T 10 -O PIXEL_SECBULL_HTML "https://source.android.com/docs/security/bulletin/pixel" 2>&1 || exit 1;
+wait $SECBULL_PID || exit 1;
 SECURITY_PATCH="$(grep "<td>$CANARY_ID" PIXEL_SECBULL_HTML | sed 's;.*<td>\(.*\)</td>;\1;')";
 if [ -z "$SECURITY_PATCH" ]; then
   warn "Failed to determine exact security patch level from Pixel Update Bulletins";

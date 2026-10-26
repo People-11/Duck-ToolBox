@@ -10,5 +10,9 @@ license = "GPL-3.0-only"
 publish = false
 
 [profile.release]
+codegen-units = 1
 lto = true
 strip = true
+# Size over speed: every run is a short configuration step or one HTTPS download.
+opt-level = "z"
+panic = "abort"

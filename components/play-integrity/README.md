@@ -50,7 +50,8 @@ Exit status is nonzero on failure.
 
 Fingerprint tasks run in private directories and never install a candidate.
 Completed tasks retain their result and a bounded log; downloaded working files are
-removed. HTTPS uses certificate validation and a bounded response body. A task's
+removed. HTTPS (HTTP/1.1) uses certificate validation and a bounded response body; independent
+pages are downloaded concurrently. A task's
 estimated expiry is upstream's heuristic, not proof of continued server acceptance.
 
 ROM replacement paths require reboot. Only a single application/overlay entry under
