@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Modified 2026-10-24: non-mutating configuration consistency diagnostics.
+// Modified 2026-10-26: Build fields and the property hook are always active.
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
@@ -36,12 +37,8 @@ fn property<'a>(entries: &'a BTreeMap<String, String>, name: &str) -> Option<(&'
 }
 
 fn system_patch(entries: &BTreeMap<String, String>) -> Option<&str> {
-    let build = (entries.get("spoofBuild").is_none_or(|v| v != "0"))
-        .then(|| entries.get("SECURITY_PATCH").map(String::as_str))
-        .flatten();
-    let prop = (entries.get("spoofProps").is_none_or(|v| v != "0"))
-        .then(|| property(entries, "ro.build.version.security_patch").map(|(_, value)| value))
-        .flatten();
+    let build = entries.get("SECURITY_PATCH").map(String::as_str);
+    let prop = property(entries, "ro.build.version.security_patch").map(|(_, value)| value);
     if matches!((build, prop), (Some(a), Some(b)) if a != b) {
         return None;
     }
@@ -49,9 +46,6 @@ fn system_patch(entries: &BTreeMap<String, String>) -> Option<&str> {
 }
 
 fn partition_conflicts<'a>(entries: &'a BTreeMap<String, String>, date: &str) -> Vec<&'a str> {
-    if entries.get("spoofProps").is_some_and(|value| value == "0") {
-        return Vec::new();
-    }
     // OMK resolves vendor/boot patch properties independently from the system patch.
     [
         "ro.vendor.build.security_patch",
@@ -113,23 +107,12 @@ pub fn inspect(entries: &BTreeMap<String, String>) -> Vec<Value> {
     // Build.java reads these properties into separate static fields. A process-local
     // field override does not also replace a later SystemProperties read.
     for &(field, property) in BUILD_PROPERTIES {
-        if entries.get("spoofBuild").is_some_and(|v| v == "0")
-            || entries.get("spoofProps").is_some_and(|v| v == "0")
-        {
-            continue;
-        }
         if let (Some(a), Some((key, b))) = (entries.get(field), self::property(entries, property))
             && !b.is_empty()
             && a != b
         {
             warnings.push(json!({"code":"mismatch","fields":[field,key]}));
         }
-    }
-    if entries
-        .get("spoofProvider")
-        .is_none_or(|value| value.is_empty() || value == "1")
-    {
-        warnings.push(json!({"code":"provider","fields":["spoofProvider"]}));
     }
     for key in entries.keys().filter(|key| key.contains('*')) {
         if !key.starts_with('*') || key[1..].contains('*') {
@@ -144,21 +127,18 @@ mod tests {
     use super::*;
     #[test]
     fn diagnostics_do_not_rewrite_expert_configuration() {
-        let entries = crate::config::parse(
-            "MODEL=A\nro.product.model=B\nro.*.name=x\nspoofProvider=1",
-            "prop",
-        )
-        .unwrap();
+        let entries =
+            crate::config::parse("MODEL=A\nro.product.model=B\nro.*.name=x", "prop").unwrap();
         let before = entries.clone();
         let warnings = inspect(&entries);
-        for code in ["missing_api", "mismatch", "provider", "wildcard"] {
+        for code in ["missing_api", "mismatch", "wildcard"] {
             assert!(warnings.iter().any(|item| item["code"] == code));
         }
         assert_eq!(entries, before);
     }
 
     #[test]
-    fn patch_link_uses_only_enabled_unambiguous_calendar_dates() {
+    fn patch_link_uses_only_unambiguous_calendar_dates() {
         for (config, expected) in [
             ("SECURITY_PATCH=2026-10-05", Some("2026-10-05")),
             (
@@ -168,12 +148,6 @@ mod tests {
             (
                 "SECURITY_PATCH=2026-10-05\n*.security_patch=2026-09-05\nro.build.version.security_patch=2026-10-05",
                 None,
-            ),
-            ("SECURITY_PATCH=2026-10-05\nspoofBuild=0", None),
-            ("*.security_patch=2026-09-05\nspoofProps=0", None),
-            (
-                "SECURITY_PATCH=2026-10-05\nspoofBuild=0\n*.security_patch=2026-09-05",
-                Some("2026-09-05"),
             ),
             ("SECURITY_PATCH=2026-02-29", None),
             ("SECURITY_PATCH=2024-02-29", Some("2024-02-29")),
@@ -189,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn consistency_checks_follow_property_hook_precedence_and_switches() {
+    fn consistency_checks_follow_property_hook_precedence() {
         let mut entries = crate::config::parse(
             "SECURITY_PATCH=2026-10-05\n*.security_patch=2026-09-05",
             "prop",
@@ -200,9 +174,6 @@ mod tests {
             "ro.build.version.security_patch".into(),
             "2026-10-05".into(),
         );
-        assert!(!inspect(&entries).iter().any(|w| w["code"] == "mismatch"));
-        entries.insert("spoofProps".into(), "0".into());
-        entries.remove("ro.build.version.security_patch");
         assert!(!inspect(&entries).iter().any(|w| w["code"] == "mismatch"));
     }
     #[test]
@@ -215,7 +186,7 @@ mod tests {
             let config = format!(
                 "SECURITY_PATCH=2026-10-05\nro.build.version.security_patch=2026-10-05\n{property}=2026-09-05"
             );
-            let mut entries = crate::config::parse(&config, "prop").unwrap();
+            let entries = crate::config::parse(&config, "prop").unwrap();
             let before = entries.clone();
             assert_eq!(suggested_patch(&entries), None, "{property}");
             assert!(
@@ -224,8 +195,6 @@ mod tests {
                     .any(|warning| warning["code"] == "patch_scope")
             );
             assert_eq!(entries, before);
-            entries.insert("spoofProps".into(), "0".into());
-            assert_eq!(suggested_patch(&entries), Some("2026-10-05"));
         }
         let entries = crate::config::parse("SECURITY_PATCH=2026-10-05\n*security_patch=2026-09-05\nro.build.version.security_patch=2026-10-05\nro.vendor.build.security_patch=2026-10-05\nro.vendor.boot_security_patch=2026-10-05", "prop").unwrap();
         assert_eq!(suggested_patch(&entries), Some("2026-10-05"));

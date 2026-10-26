@@ -23,7 +23,7 @@ void PropertyHook::modify(void *opaque,const char *name,const char *value,uint32
         else for(const auto &[key,candidate]:owner->properties) {
             if(key.starts_with("*") && std::string_view(name).ends_with(std::string_view(key).substr(1))) {replacement=candidate.c_str();break;}
         }
-        if(owner->logLevel>99 || replacement!=value) LOGD("[%s]: %s -> %s",name,value,replacement);
+        if(replacement!=value) LOGD("[%s]: %s -> %s",name,value,replacement);
     }
     context->callback(context->cookie,name,replacement,serial);
 }
@@ -35,7 +35,7 @@ void PropertyHook::read(const prop_info *info,Callback callback,void *cookie) {
     owner->original(info,modify,&context);
 }
 bool PropertyHook::install(const Settings &settings) {
-    properties=settings.properties;logLevel=settings.verboseLogs;
+    properties=settings.properties;
     if(shadowhook_init(SHADOWHOOK_MODE_UNIQUE,false)!=0) { LOGD("ShadowHook initialization failed");return false; }
     void *symbol=dlsym(RTLD_DEFAULT,"__system_property_read_callback");
     if(!symbol) { LOGD("Property symbol unavailable");return false; }

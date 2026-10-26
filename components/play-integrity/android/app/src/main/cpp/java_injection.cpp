@@ -7,7 +7,6 @@
 #include <android/log.h>
 #include <limits>
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "PIF/Native", __VA_ARGS__)
-#define VENDING_PACKAGE "com.android.vending"
 namespace pif {
 jstring javaString(JNIEnv *env, std::string_view text) {
     if (text.size() > static_cast<size_t>(std::numeric_limits<jsize>::max()) || env->PushLocalFrame(5) < 0) return nullptr;
@@ -75,11 +74,6 @@ static void setFieldNative(JNIEnv *env, jclass /* clazz_EntryPoint */, jclass ta
 
 void JavaInjection::initialize(JNIEnv *environment, std::vector<char> dex, const Settings &settings) {
     env=environment; dexVector=std::move(dex); json=settings.build;
-    pkgName=settings.vending ? VENDING_PACKAGE : "com.google.android.gms.unstable";
-    vendingFingerprintValue=settings.vendingFingerprint;
-    verboseLogs=settings.verboseLogs; spoofBuild=settings.spoofBuild;
-    spoofProvider=settings.spoofProvider; spoofSignature=settings.spoofSignature;
-    spoofVendingFinger=settings.spoofVendingFinger; spoofVendingSdk=settings.spoofVendingSdk;
     inject();
 }
 bool JavaInjection::failed(const char *operation) {
@@ -111,31 +105,22 @@ void JavaInjection::injectFrame() {
         if (!loader || failed("loader reference")) return;
         auto load = env->GetMethodID(clClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
         if (!load || failed("loadClass method")) return;
-        const bool vending = pkgName == VENDING_PACKAGE;
-        auto className = env->NewStringUTF(vending ? "es.chiteroman.playintegrityfix.EntryPointVending" : "es.chiteroman.playintegrityfix.EntryPoint");
+        auto className = env->NewStringUTF("es.chiteroman.playintegrityfix.EntryPoint");
         if (!className || failed("entry name")) return;
         auto entry = static_cast<jclass>(env->CallObjectMethod(loader, load, className));
         if (!entry || failed("entry class")) return;
         JNINativeMethod methods[] = {{const_cast<char *>("setFieldNative"), const_cast<char *>("(Ljava/lang/Class;Ljava/lang/reflect/Field;Ljava/lang/String;Ljava/lang/Object;)V"), reinterpret_cast<void *>(setFieldNative)}};
         if (env->RegisterNatives(entry, methods, 1) != JNI_OK || failed("RegisterNatives")) return;
-        if (vending) {
-            auto method = env->GetStaticMethodID(entry, "init", "(IIILjava/lang/String;)V");
-            if (!method || failed("vending init")) return;
-            auto value = javaString(env, vendingFingerprintValue);
-            if (!value || failed("fingerprint")) return;
-            env->CallStaticVoidMethod(entry, method, verboseLogs, spoofVendingFinger, spoofVendingSdk, value);
-        } else {
-            auto receive = env->GetStaticMethodID(entry, "receiveJson", "(Ljava/lang/String;)V");
-            if (!receive || failed("receiveJson")) return;
-            auto value = env->NewStringUTF(json.dump(-1, ' ', true).c_str());
-            if (!value || failed("config string")) return;
-            env->CallStaticVoidMethod(entry, receive, value);
-            if (failed("receiveJson call")) return;
-            auto method = env->GetStaticMethodID(entry, "init", "(IIII)V");
-            if (!method || failed("entry init")) return;
-            env->CallStaticVoidMethod(entry, method, verboseLogs, spoofBuild, spoofProvider, spoofSignature);
-        }
-        if (!failed("entry init call")) LOGD("Injection initialized for %s", pkgName.c_str());
+        auto receive = env->GetStaticMethodID(entry, "receiveJson", "(Ljava/lang/String;)V");
+        if (!receive || failed("receiveJson")) return;
+        auto value = env->NewStringUTF(json.dump(-1, ' ', true).c_str());
+        if (!value || failed("config string")) return;
+        env->CallStaticVoidMethod(entry, receive, value);
+        if (failed("receiveJson call")) return;
+        auto method = env->GetStaticMethodID(entry, "init", "()V");
+        if (!method || failed("entry init")) return;
+        env->CallStaticVoidMethod(entry, method);
+        if (!failed("entry init call")) LOGD("Injection initialized for DroidGuard");
     }
 
 }

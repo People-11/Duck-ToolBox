@@ -30,6 +30,12 @@ generation, and the bundled `scripts/app_replace_list.txt`. The engine runs when
 containing module is enabled, no conflicting PIF/USNF module is enabled, and a nonempty
 configuration is saved. The root manager's disable/remove flags are the only stop control.
 
+The spoofing switches are fixed in the injected code rather than read from the
+configuration: Build field spoofing and the property hook are always on; KeyStore
+provider, signature, Play Store and verbose-log paths are removed. Only DroidGuard
+(`com.google.android.gms.unstable`) is injected; Play Store processes still get the root
+unmount. Configurations contain only Build fields and properties.
+
 ## Process interface (version 1)
 
 `pif-engine request OPERATION` reads optional JSON on stdin and prints one object:

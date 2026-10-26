@@ -1,18 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Derived from Play Integrity Fork native config handling (23ec56c).
 // Modified 2026-10-24: scalar normalization, rejected invalid UTF-8 and bounded parsing.
+// Modified 2026-10-26: no spoofing switches; keys split into Build fields and properties.
 #include "transport.hpp"
 #include "settings.hpp"
 #include <charconv>
 #include <sstream>
 namespace pif {
-int number(const nlohmann::json &value, int fallback) {
-    if (!value.is_string()) return fallback;
-    const auto text = value.get<std::string>();
-    int result = 0;
-    auto parsed = std::from_chars(text.data(), text.data() + text.size(), result);
-    return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size() && result >= 0 && result <= 100 ? result : fallback;
-}
 nlohmann::json parse(const std::string &raw) {
     if (raw.size() > max_config) return {};
     nlohmann::json result;
@@ -61,24 +55,8 @@ nlohmann::json parse(const std::string &raw) {
 }
 
 namespace pif {
-Settings settings(nlohmann::json config, bool vending) {
-    Settings result; result.vending=vending;
-    auto take=[&](const char *key,int fallback) { auto value=config.contains(key)?number(config[key],fallback):fallback; config.erase(key); return value; };
-    result.verboseLogs=take("verboseLogs",0);
-    result.spoofBuild=take("spoofBuild",1); result.spoofProps=take("spoofProps",1);
-    result.spoofProvider=take("spoofProvider",1); result.spoofSignature=take("spoofSignature",0);
-    result.spoofVendingSdk=take("spoofVendingSdk",0);
-    auto finger=config.value("spoofVendingFinger",std::string("0")); config.erase("spoofVendingFinger");
-    if (finger=="0" || finger=="1") {
-        result.spoofVendingFinger=finger=="1";
-        result.vendingFingerprint=config.value("FINGERPRINT",std::string());
-        if(result.vendingFingerprint.empty()) result.spoofVendingFinger=0;
-    } else { result.spoofVendingFinger=1; result.vendingFingerprint=finger; }
-    if(vending) {
-        result.spoofBuild=result.spoofProps=result.spoofProvider=result.spoofSignature=0;
-        result.build=nlohmann::json::object(); return result;
-    }
-    result.spoofVendingFinger=result.spoofVendingSdk=0;
+Settings settings(const nlohmann::json &config) {
+    Settings result;
     result.build=nlohmann::json::object();
     for(const auto &entry:config.items()) {
         if(entry.key().find_first_of("*.")!=std::string::npos) {

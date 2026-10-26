@@ -2,22 +2,14 @@
 // Derived from Play Integrity Fork migrate.sh and native configuration handling.
 // Upstream 23ec56c2440c4fd1a5e893a23ef7861d6366a828; modified 2026-10-24:
 // bounded parsing, non-destructive migration, preserved custom fields and previews.
-// Modified 2026-10-26: migration always fills missing fields and advanced defaults; no options.
+// Modified 2026-10-26: migration always fills missing fields; spoofing switches are fixed in the
+// injected code, so configurations carry no switch keys or defaults.
 use crate::{Engine, files};
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 pub type Entries = BTreeMap<String, String>;
-pub const ADVANCED: &[(&str, &str)] = &[
-    ("spoofBuild", "1"),
-    ("spoofProps", "1"),
-    ("spoofProvider", "0"),
-    ("spoofSignature", "0"),
-    ("spoofVendingFinger", "0"),
-    ("spoofVendingSdk", "0"),
-    ("verboseLogs", "0"),
-];
 
 pub fn parse(raw: &str, format: &str) -> Result<Entries> {
     if !["auto", "prop", "json"].contains(&format) {
@@ -145,30 +137,11 @@ pub fn validate(entries: &Entries) -> Result<()> {
         {
             bail!("{key}: expected a non-negative 32-bit integer or an empty value");
         }
-        if matches!(
-            key.as_str(),
-            "spoofBuild" | "spoofProps" | "spoofProvider" | "spoofSignature"
-        ) && !matches!(value.as_str(), "0" | "1" | "")
-        {
-            bail!("{key}: expected 0 or 1");
-        }
-        if matches!(key.as_str(), "verboseLogs" | "spoofVendingSdk")
-            && !value.is_empty()
-            && value.parse::<u32>().is_err()
-        {
-            bail!("{key}: expected non-negative integer");
-        }
-        if key == "verboseLogs" && !value.is_empty() && value.parse::<u32>()? > 100 {
-            bail!("verboseLogs: maximum 100");
-        }
-        if key == "spoofVendingSdk" && !value.is_empty() && value.parse::<u32>()? > 100 {
-            bail!("spoofVendingSdk: maximum 100");
-        }
     }
     Ok(())
 }
 /// Fills Build fields from the fingerprint and properties from Build fields, without
-/// replacing present values, and adds the advanced defaults.
+/// replacing present values.
 pub fn migrate(entries: &mut Entries) {
     let fingerprint = entries.get("FINGERPRINT").cloned().unwrap_or_default();
     let pieces: Vec<_> = fingerprint.split(['/', ':']).collect();
@@ -191,16 +164,10 @@ pub fn migrate(entries: &mut Entries) {
             }
         }
     }
-    if let Some(value) = entries.remove("VERBOSE_LOGS") {
-        entries.entry("verboseLogs".into()).or_insert(value);
-    }
     for &(field, prop) in crate::rules::BUILD_PROPERTIES {
         if let Some(value) = entries.get(field).cloned() {
             entries.entry(prop.into()).or_insert(value);
         }
-    }
-    for (key, value) in ADVANCED {
-        entries.entry((*key).into()).or_insert((*value).into());
     }
 }
 pub fn serialize(entries: &Entries, format: &str) -> Result<String> {
@@ -230,17 +197,9 @@ pub fn current(engine: &Engine) -> Result<Value> {
 pub fn preview(engine: &Engine, input: &Value) -> Result<Value> {
     let raw = crate::text(input, "content")?;
     let format = input["format"].as_str().unwrap_or("auto");
-    let mut entries = parse(raw, format)?;
+    let entries = parse(raw, format)?;
     let old = current(engine)?;
     let before: Entries = serde_json::from_value(old["entries"].clone())?;
-    // Defaults for a new configuration are visible in the preview. Existing
-    // configurations retain the legacy implicit defaults unless explicitly migrated.
-    if before.is_empty() && !entries.is_empty() {
-        for (key, value) in ADVANCED {
-            entries.entry((*key).into()).or_insert((*value).into());
-        }
-    }
-    validate(&entries)?;
     if serialize(&entries, "json")?.len() > 64 * 1024 {
         bail!("serialized configuration exceeds 64 KiB");
     }
@@ -262,11 +221,10 @@ mod tests {
     use super::*;
     #[test]
     fn legacy_and_unknown_fields_survive_migration() {
-        let mut e=parse("{\n// old\n\"FINGERPRINT\":\"google/p/d:16/ID/123:user/release-keys\",\"EXTRA\":\"https://a/b\",\"VERBOSE_LOGS\":\"2\"}","json").unwrap();
+        let mut e=parse("{\n// old\n\"FINGERPRINT\":\"google/p/d:16/ID/123:user/release-keys\",\"EXTRA\":\"https://a/b\"}","json").unwrap();
         migrate(&mut e);
         assert_eq!(e["RELEASE"], "16");
         assert_eq!(e["EXTRA"], "https://a/b");
-        assert_eq!(e["verboseLogs"], "2");
         assert_eq!(e["ro.build.fingerprint"], e["FINGERPRINT"]);
     }
     #[test]
@@ -278,8 +236,6 @@ mod tests {
         .unwrap();
         assert_eq!(e["MODEL"], "b");
         assert!(e.contains_key("*.security_patch"));
-        assert!(parse("spoofBuild=abc", "prop").is_err());
-        assert!(parse("verboseLogs=101", "prop").is_err());
         assert!(parse("bad-key=x", "prop").is_err());
         assert!(parse("{\"x\":[]}", "json").is_err());
         assert!(parse("DEVICE_INITIAL_SDK_INT=invalid", "prop").is_err());
@@ -293,14 +249,11 @@ mod tests {
         migrate(&mut entries);
         assert!(!entries.contains_key("DEVICE_INITIAL_SDK_INT"));
         assert!(!entries.contains_key("ro.board.first_api_level"));
-        assert_eq!(entries["spoofProvider"], "0");
         entries.insert("DEVICE_INITIAL_SDK_INT".into(), "36".into());
         entries.insert("ro.board.first_api_level".into(), "35".into());
-        entries.insert("spoofProvider".into(), "1".into());
         migrate(&mut entries);
         assert_eq!(entries["DEVICE_INITIAL_SDK_INT"], "36");
         assert_eq!(entries["ro.product.first_api_level"], "36");
         assert_eq!(entries["ro.board.first_api_level"], "35");
-        assert_eq!(entries["spoofProvider"], "1");
     }
 }

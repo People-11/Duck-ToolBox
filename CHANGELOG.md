@@ -26,6 +26,10 @@
 - Shrink the engine from about 5.4 MB to roughly a third: a synchronous HTTP/1.1 client
   (ureq, rustls with ring) replaces tokio, reqwest and aws-lc, arguments are parsed
   without clap, and the release profile optimizes for size.
+- Fix the spoofing switches in the injected code (Build fields and property hook on;
+  provider, signature, Play Store and verbose logging off) and remove the code behind
+  the disabled ones: the KeyStore provider and signature spoofing classes, Play Store
+  injection and verbose logging. Configurations no longer carry switch keys.
 - Fingerprint generation downloads independent pages concurrently (Flash Tool and
   security bulletins from the start, factory and OTA pages together), cutting the
   sequential request chain from eight requests to five.

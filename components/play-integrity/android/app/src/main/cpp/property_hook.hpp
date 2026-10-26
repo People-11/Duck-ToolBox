@@ -18,6 +18,5 @@ private:
     static void modify(void *,const char *,const char *,uint32_t);
     std::map<std::string,std::string> properties;
     Read original=nullptr;
-    int logLevel=0;
 };
 }

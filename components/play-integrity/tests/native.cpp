@@ -77,9 +77,6 @@ int main() {
     auto scalars = pif::parse("{\"spoofBuild\":true,\"SDK_INT\":36,\"EXTRA\":null}");
     assert(scalars["spoofBuild"] == "1" && scalars["SDK_INT"] == "36" && scalars["EXTRA"] == "");
     assert(pif::parse("{\"MODEL\":\"bad\\nvalue\"}").empty());
-    assert(pif::number("2147483648", 0) == 0);
-    assert(pif::number("1tail", 0) == 0);
-    assert(pif::number("100", 0) == 100);
     int fd[2]; assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fd) == 0);
     std::thread writer([&] {
         uint32_t header[]{pif::magic, 3, 2};

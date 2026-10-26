@@ -17,5 +17,4 @@ bool transfer(int fd, void *buffer, size_t size, bool writing,
 bool receive(int fd, std::vector<char> &dex, std::string &config);
 void companion(int fd);
 nlohmann::json parse(const std::string &raw);
-int number(const nlohmann::json &value, int fallback);
 }

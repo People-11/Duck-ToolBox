@@ -173,13 +173,6 @@ pub fn work(engine: &Engine, id: &str) -> Result<Value> {
             .entry("ro.board.first_api_level".into())
             .or_insert("32".into());
         config::migrate(&mut entries);
-        let previous = config::current(engine)?;
-        for (key, _) in config::ADVANCED {
-            if let Some(value) = previous["entries"][*key].as_str() {
-                entries.insert((*key).into(), value.into());
-            }
-        }
-        entries.insert("spoofProvider".into(), "0".into());
         let mut result = config::preview(
             engine,
             &json!({"content":config::serialize(&entries,"json")?,"format":"json"}),

@@ -2,6 +2,7 @@
  * Source: https://github.com/osm0sis/PlayIntegrityFork/tree/23ec56c2440c4fd1a5e893a23ef7861d6366a828
  * SPDX-License-Identifier: GPL-3.0-only
  * Modified 2026-10-23: independent engine packaging, bounded configuration and runtime operations.
+ * Modified 2026-10-26: Play Store processes only get the root unmount; DroidGuard is injected.
  */
 #include <android/log.h>
 #include <unistd.h>
@@ -33,13 +34,13 @@ public:
         auto config=pif::parse(content);
         if(!config.is_object()||config.empty()) {unload();return;}
         api->setOption(zygisk::FORCE_DENYLIST_UNMOUNT);
-        if(process!="com.google.android.gms.unstable" && process!="com.android.vending") {unload();return;}
-        settings=pif::settings(std::move(config),process=="com.android.vending");ready=true;
+        if(process!="com.google.android.gms.unstable") {unload();return;}
+        settings=pif::settings(config);ready=true;
     }
     void postAppSpecialize(const zygisk::AppSpecializeArgs *) override {
         if(!ready) return;
-        if(settings.spoofProps) hooks.install(settings);
-        if(settings.injectJava()) java.initialize(env,std::move(dex),settings);
+        hooks.install(settings);
+        java.initialize(env,std::move(dex),settings);
         LOGD("Specialization initialized for %s",process.c_str());
     }
     void preServerSpecialize(zygisk::ServerSpecializeArgs *) override {unload();}
