@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Modified 2026-10-24: record permissive visibility permissions and restore only owned changes.
-use crate::{Engine, files, power};
+use crate::{Engine, files};
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -46,9 +46,6 @@ fn chmod(_: &std::path::Path, _: u32) -> Result<()> {
     bail!("SELinux permissions require Unix")
 }
 pub fn apply(engine: &Engine) -> Result<()> {
-    if power::disabled(engine) {
-        return Ok(());
-    }
     let enforce = engine.device(FILES[0].0);
     if !enforce.exists() {
         return Ok(());
@@ -70,9 +67,6 @@ pub fn apply(engine: &Engine) -> Result<()> {
     }
     let mut saved = load(engine)?;
     for (name, applied) in FILES {
-        if power::disabled(engine) {
-            break;
-        }
         let current = mode(&engine.device(name))?;
         if let Some(record) = saved.get(name) {
             if current != record.before && current != record.applied {

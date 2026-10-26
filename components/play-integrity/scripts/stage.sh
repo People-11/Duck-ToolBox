@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Derived from Play Integrity Fork boot scripts (23ec56c2440c4fd1a5e893a23ef7861d6366a828).
 # Modified 2026-10-24: component-owned state and root-manager lifecycle integration.
+# Modified 2026-10-26: fixed default options; no scripts-only mode, skips or stop gate.
 set -eu
 MODPATH="$PIF_ENGINE_ROOT"
-export MODPATH PIF_ENGINE_DATA PIF_ENGINE_SCRIPTS PIF_ENGINE_MODE
+export MODPATH PIF_ENGINE_DATA PIF_ENGINE_SCRIPTS
 
 # Installer shell functions do not cross the standalone process boundary.
 ui_print() { printf '%s\n' "$*"; }
@@ -53,12 +54,8 @@ case "$phase" in
   setup|early|late) pif_running || phase=cleanup ;;
 esac
 
-case "$phase:$PIF_ENGINE_MODE" in
-  setup:full|early:full)
-    list="$PIF_ENGINE_SCRIPTS/app_replace_list.txt"
-    [ ! -f "$PIF_ENGINE_DATA/custom.app_replace_list.txt" ] || list="$PIF_ENGINE_DATA/custom.app_replace_list.txt"
-    pif_validate_list "$list" || exit 1
-    ;;
+case "$phase" in
+  setup|early) pif_validate_list "$PIF_ENGINE_SCRIPTS/app_replace_list.txt" || exit 1 ;;
 esac
 
 case "$phase" in
@@ -71,11 +68,9 @@ case "$phase" in
     mkdir -p "$PIF_ENGINE_DATA"
     chmod 0700 "$PIF_ENGINE_DATA"
     cleanup_overlays
-    if [ "$PIF_ENGINE_MODE" != "scripts-only" ]; then
-      set +eu
-      . "$PIF_ENGINE_SCRIPTS/common_func.sh"
-      . "$PIF_ENGINE_SCRIPTS/common_setup.sh"
-    fi
+    set +eu
+    . "$PIF_ENGINE_SCRIPTS/common_func.sh"
+    . "$PIF_ENGINE_SCRIPTS/common_setup.sh"
     ;;
   early)
     cleanup_overlays

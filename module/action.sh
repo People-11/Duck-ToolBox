@@ -1,11 +1,12 @@
 #!/system/bin/sh
 # Action button: issue a keybox with this device's KeyMint TA now, install it in the active
-# keystore module and show the state that is also written to module.prop.
+# keystore module, refresh the Play Integrity fingerprint and show the module.prop state.
 
 MODPATH=${0%/*}
 
 echo "- Issuing a keybox with this device's KeyMint TA..."
-echo "  Only some Qualcomm devices work, and only RKP certificates are issued."
+echo "  Only some devices work, and only RKP certificates are issued."
+echo "  After issuance a Play Integrity fingerprint is generated (up to two minutes)."
 if "$MODPATH/bin/duckctl.sh" renew --force >/dev/null 2>&1; then
   status=0
   echo "- Keybox installed."

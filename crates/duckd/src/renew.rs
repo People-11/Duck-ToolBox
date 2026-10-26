@@ -1,5 +1,6 @@
 //! Keybox renewal: keeps the active keystore module's keybox valid with keyboxes issued by
-//! this device's KeyMint TA, and reports the state in the module's `module.prop`.
+//! this device's KeyMint TA, refreshes the Play Integrity fingerprint once after each
+//! issuance (or while none exists), and reports the state in the module's `module.prop`.
 
 use std::path::Path;
 
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 pub const COMMAND: &str = "renew";
 /// Renew once the earliest certificate expires within this window.
 const RENEW_BEFORE: u64 = 24 * 60 * 60;
-/// At most one automatic issuance per hour, whatever the outcome.
+/// At most one automatic issuance (and one fingerprint attempt) per hour, whatever the outcome.
 const RETRY_AFTER: u64 = 60 * 60;
 const STATE_FILE: &str = "renew.json";
 const MAX_ERROR_CHARS: usize = 160;
@@ -23,6 +24,14 @@ const MAX_ERROR_CHARS: usize = 160;
 struct State {
     attempted_at: u64,
     error: Option<String>,
+    /// A fingerprint is owed: a keybox was issued, or the engine has none, and no
+    /// refresh has succeeded since.
+    #[serde(default)]
+    fingerprint_pending: bool,
+    #[serde(default)]
+    fingerprint_attempted_at: u64,
+    #[serde(default)]
+    fingerprint_error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -31,6 +40,8 @@ struct RenewData {
     expires_at: Option<u64>,
     renewed: bool,
     error: Option<String>,
+    fingerprint_refreshed: bool,
+    fingerprint_error: Option<String>,
     description: String,
 }
 
@@ -68,25 +79,47 @@ async fn renew(features: &[&dyn Feature], ctx: &Context, force: bool) -> Result<
         matches!(expiry, Ok(None)) || matches!(expiry, Ok(Some(at)) if now + RENEW_BEFORE >= at);
     let allowed = now >= state.attempted_at + RETRY_AFTER;
     let mut renewed = false;
+    let mut attempted = false;
     if has_backend && (force || (due && allowed)) {
-        state = match issue(ctx).await {
+        attempted = true;
+        state.attempted_at = now;
+        match issue(ctx).await {
             Ok(expires_at) => {
                 renewed = true;
                 expiry = Ok(expires_at);
-                State {
-                    attempted_at: now,
-                    error: None,
-                }
+                state.error = None;
+                state.fingerprint_pending = true;
             }
-            Err(error) => State {
-                attempted_at: now,
-                error: Some(format!(
+            Err(error) => {
+                state.error = Some(format!(
                     "{}: {}",
                     duck_rkp_device::code_of(&error),
                     truncate(&format!("{error:#}"))
-                )),
-            },
-        };
+                ));
+            }
+        }
+    }
+
+    // An error here means the Play Integrity engine is missing or unusable.
+    let engine = crate::fingerprint::missing(ctx);
+    let mut fingerprint_refreshed = false;
+    if let Ok(missing) = engine {
+        state.fingerprint_pending |= missing;
+        let allowed = renewed || now >= state.fingerprint_attempted_at + RETRY_AFTER;
+        if state.fingerprint_pending && allowed {
+            attempted = true;
+            state.fingerprint_attempted_at = now;
+            match crate::fingerprint::refresh(ctx, has_backend) {
+                Ok(()) => {
+                    fingerprint_refreshed = true;
+                    state.fingerprint_pending = false;
+                    state.fingerprint_error = None;
+                }
+                Err(error) => state.fingerprint_error = Some(truncate(&format!("{error:#}"))),
+            }
+        }
+    }
+    if attempted {
         ctx.paths.ensure_runtime_dirs()?;
         write_string_atomic(&state_path, &serde_json::to_string(&state)?)?;
     }
@@ -94,8 +127,13 @@ async fn renew(features: &[&dyn Feature], ctx: &Context, force: bool) -> Result<
     let expires_at = expiry.ok().flatten();
     // Without a keystore module the Tricky Store status line explains what is missing.
     let keybox = has_backend.then(|| keybox_line(now, expires_at, &state));
+    let integrity = match engine {
+        Ok(_) => fingerprint_line(&state, crate::fingerprint::summary(ctx)),
+        Err(_) => Some("⚠️ Play Integrity engine unavailable".to_owned()),
+    };
     let description = keybox
         .into_iter()
+        .chain(integrity)
         .chain(
             features
                 .iter()
@@ -118,6 +156,8 @@ async fn renew(features: &[&dyn Feature], ctx: &Context, force: bool) -> Result<
         expires_at,
         renewed,
         error: state.error,
+        fingerprint_refreshed,
+        fingerprint_error: state.fingerprint_error,
         description,
     })
 }
@@ -148,6 +188,19 @@ fn keybox_line(now: u64, expires_at: Option<u64>, state: &State) -> String {
         ),
         None => format!("⏳ {subject}; renewal pending"),
     }
+}
+
+fn fingerprint_line(state: &State, applied: Option<String>) -> Option<String> {
+    if !state.fingerprint_pending {
+        return applied.map(|applied| format!("✅ PIF {applied}"));
+    }
+    Some(match &state.fingerprint_error {
+        Some(error) => format!(
+            "❌ PIF fingerprint failed ({error}), retry after {}",
+            utc(state.fingerprint_attempted_at + RETRY_AFTER)
+        ),
+        None => "⏳ PIF fingerprint pending".to_owned(),
+    })
 }
 
 /// Replaces the `description=` line, writing only when it changed.
@@ -190,7 +243,7 @@ fn utc(seconds: u64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{RENEW_BEFORE, State, keybox_line, utc};
+    use super::{RENEW_BEFORE, State, fingerprint_line, keybox_line, utc};
 
     const NOW: u64 = 1_792_731_163; // 2026-10-23 04:52:43 UTC
 
@@ -200,6 +253,7 @@ mod tests {
         let failed = State {
             attempted_at: NOW,
             error: Some("ta_rejected: status -18".into()),
+            ..State::default()
         };
         let later = NOW + 7 * 24 * 60 * 60;
 
@@ -219,6 +273,27 @@ mod tests {
         assert_eq!(
             keybox_line(NOW, None, &failed),
             "❌ No usable keybox; renewal failed (ta_rejected: status -18), retry after 2026-10-23 05:52 UTC"
+        );
+    }
+
+    #[test]
+    fn describes_fingerprint_state() {
+        let mut state = State::default();
+        assert_eq!(fingerprint_line(&state, None), None);
+        assert_eq!(
+            fingerprint_line(&state, Some("Pixel 9 (2026-10-05)".into())).as_deref(),
+            Some("✅ PIF Pixel 9 (2026-10-05)")
+        );
+        state.fingerprint_pending = true;
+        assert_eq!(
+            fingerprint_line(&state, None).as_deref(),
+            Some("⏳ PIF fingerprint pending")
+        );
+        state.fingerprint_attempted_at = NOW;
+        state.fingerprint_error = Some("offline".into());
+        assert_eq!(
+            fingerprint_line(&state, None).as_deref(),
+            Some("❌ PIF fingerprint failed (offline), retry after 2026-10-23 05:52 UTC")
         );
     }
 }

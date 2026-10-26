@@ -54,22 +54,10 @@ static void gateTests() {
     write("module/play-integrity/classes.dex","dex"); write("data/custom.pif.json","{\"MODEL\":\"A\"}");
     const auto received=[](){int fd[2];assert(socketpair(AF_UNIX,SOCK_STREAM,0,fd)==0);std::thread server([&]{pif::companion(fd[1]);close(fd[1]);});std::vector<char> dex;std::string config;const bool result=pif::receive(fd[0],dex,config);close(fd[0]);server.join();return result;};
     assert(received());
-    write("data/options.json","{\"enabled\":false}"); assert(!received());
-    write("data/options.json","{\"enabled\":true}"); assert(received());
-    for (const auto *key : {"skipdelprop", "skippersistprop", "skipmatchdevice"}) {
-        std::ofstream(root / "data/options.json") << "{\"" << key << "\":\"false\"}";
-        assert(!received());
-        std::ofstream(root / "data/options.json") << "{\"" << key << "\":false}";
-        assert(received());
-    }
-    write("data/disabled",""); write("data/enabled-token",""); assert(!received());
-    write("data/disabled","first-stop"); assert(!received());
-    write("data/enabled-token","first-stop"); assert(received());
-    write("data/disabled","later-stop"); assert(!received());
-    write("data/enabled-token","later-stop"); assert(received());
-    write("data/options.json","{broken"); assert(!received());
-    write("data/options.json","{\"mode\":\"scripts-only\"}"); assert(!received());
-    write("data/options.json","{}"); write("module/disable",""); assert(!received());
+    // Legacy option and stop files no longer gate injection.
+    write("data/options.json","{\"enabled\":false,\"mode\":\"scripts-only\"}"); write("data/disabled","stop");
+    assert(received());
+    write("module/disable",""); assert(!received());
     fs::remove(root / "module/disable"); write("data/custom.pif.json",""); assert(!received());
 }
 #endif

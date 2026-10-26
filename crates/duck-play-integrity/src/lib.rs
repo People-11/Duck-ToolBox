@@ -14,7 +14,7 @@ use std::io::{self, Read};
 pub static FEATURE: ClapFeature<Command> = ClapFeature::new(
     FeatureInfo {
         id: "play-integrity",
-        summary: "Play Integrity engine configuration, fingerprint generation and diagnostics",
+        summary: "Play Integrity engine status, fingerprint generation and configuration",
         contract: 1,
     },
     dispatch,
@@ -31,56 +31,26 @@ pub struct Input {
 }
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    Power,
-    Disable,
     Status,
     Config,
-    Inspect,
-    ProfileList,
-    ProfileSave(Input),
-    ProfilePreview(Input),
-    ProfileDelete(Input),
-    RecordList,
-    RecordSave(Input),
-    RecordClear,
     Preview(Input),
-    ImportPreview(Input),
     Apply(Input),
     Restore(Input),
-    Options(Input),
-    TaskStart(Input),
+    TaskStart,
     TaskStatus(Input),
-    TaskCancel(Input),
     Restart,
-    Diagnose,
 }
 
 fn run(command: Command, ctx: &Context) -> CommandResult {
     let (operation, label, input) = match command {
-        Command::Power => ("power", "play-integrity.power", None),
-        Command::Disable => ("disable", "play-integrity.disable", None),
         Command::Status => ("status", "play-integrity.status", None),
         Command::Config => ("config", "play-integrity.config", None),
-        Command::Inspect => ("inspect", "play-integrity.inspect", None),
-        Command::ProfileList => ("profile-list", "play-integrity.profile-list", None),
-        Command::ProfileSave(v) => ("profile-save", "play-integrity.profile-save", Some(v)),
-        Command::ProfilePreview(v) => {
-            ("profile-preview", "play-integrity.profile-preview", Some(v))
-        }
-        Command::ProfileDelete(v) => ("profile-delete", "play-integrity.profile-delete", Some(v)),
-        Command::RecordList => ("record-list", "play-integrity.record-list", None),
-        Command::RecordSave(v) => ("record-save", "play-integrity.record-save", Some(v)),
-        Command::RecordClear => ("record-clear", "play-integrity.record-clear", None),
         Command::Preview(v) => ("preview", "play-integrity.preview", Some(v)),
-        Command::ImportPreview(v) => ("import-preview", "play-integrity.import-preview", Some(v)),
         Command::Apply(v) => ("apply", "play-integrity.apply", Some(v)),
         Command::Restore(v) => ("restore", "play-integrity.restore", Some(v)),
-        Command::Options(v) => ("options", "play-integrity.options", Some(v)),
-        Command::TaskStart(v) => ("task-start", "play-integrity.task-start", Some(v)),
+        Command::TaskStart => ("task-start", "play-integrity.task-start", None),
         Command::TaskStatus(v) => ("task-status", "play-integrity.task-status", Some(v)),
-        Command::TaskCancel(v) => ("task-cancel", "play-integrity.task-cancel", Some(v)),
         Command::Restart => ("restart", "play-integrity.restart", None),
-        Command::Diagnose => ("diagnose", "play-integrity.diagnose", None),
     };
     let result = (|| -> Result<Value> {
         let input = if let Some(input) = input {

@@ -53,28 +53,15 @@ static std::vector<char> file(const std::string &path, size_t limit) {
     if (!stream.read(bytes.data(), static_cast<std::streamsize>(bytes.size()))) return {};
     return bytes;
 }
+// Modified 2026-10-26: options are fixed defaults; only module flags and conflicts gate injection.
 static bool active() {
-    if (access(PIF_DATA_DIR "/disabled", F_OK) == 0) {
-        struct stat metadata{};
-        if (stat(PIF_DATA_DIR "/disabled", &metadata) != 0 || metadata.st_size <= 0 || metadata.st_size > 128
-            || stat(PIF_DATA_DIR "/enabled-token", &metadata) != 0 || metadata.st_size > 128
-            || file(PIF_DATA_DIR "/disabled",128) != file(PIF_DATA_DIR "/enabled-token",128)) return false;
-    }
     if (access(PIF_MODULE_DIR "/../disable", F_OK) == 0
         || access(PIF_MODULE_DIR "/../remove", F_OK) == 0) return false;
     for (const auto *id : {"playintegrityfix", "safetynet-fix"}) {
         auto path = std::string("/data/adb/modules/") + id;
         if (access((path + "/module.prop").c_str(), F_OK) == 0 && access((path + "/disable").c_str(), F_OK) != 0 && access((path + "/remove").c_str(), F_OK) != 0) return false;
     }
-    const auto bytes = file(PIF_DATA_DIR "/options.json", max_config);
-    if (bytes.empty()) return access(PIF_DATA_DIR "/options.json", F_OK) != 0;
-    const auto opts = nlohmann::json::parse(bytes.begin(), bytes.end(), nullptr, false);
-    if (!opts.is_object()) return false;
-    for (const auto *key : {"skipdelprop", "skippersistprop", "skipmatchdevice"}) {
-        if (opts.contains(key) && !opts[key].is_boolean()) return false;
-    }
-    if (opts.contains("enabled") && (!opts["enabled"].is_boolean() || !opts["enabled"].get<bool>())) return false;
-    return !opts.contains("mode") || opts["mode"] == "full";
+    return true;
 }
 bool receive(int fd, std::vector<char> &dex, std::string &config) {
     dex.clear(); config.clear();

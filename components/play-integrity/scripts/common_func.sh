@@ -2,11 +2,8 @@
 # Source: https://github.com/osm0sis/PlayIntegrityFork/tree/23ec56c2440c4fd1a5e893a23ef7861d6366a828
 # SPDX-License-Identifier: GPL-3.0-only
 # Modified 2026-10-24: independent engine packaging, bounded configuration and runtime operations.
-# A separate stop gate remains usable even when configuration files are invalid.
+# Modified 2026-10-26: fixed default options; no scripts-only mode, skips or stop gate.
 . "$PIF_ENGINE_SCRIPTS/power.sh"
-
-SKIPDELPROP=false
-[ -f "$PIF_ENGINE_DATA/skipdelprop" ] && SKIPDELPROP=true
 
 # delprop_if_exist <prop name>
 delprop_if_exist() {
@@ -18,9 +15,6 @@ delprop_if_exist() {
         resetprop -c $(resetprop -Z "$NAME") >/dev/null 2>&1 || true
     fi
 }
-
-SKIPPERSISTPROP=false
-[ -f "$PIF_ENGINE_DATA/skippersistprop" ] && SKIPPERSISTPROP=true
 
 # Quote property values as data in the restoration script, including apostrophes.
 shell_quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }

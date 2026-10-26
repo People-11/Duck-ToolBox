@@ -18,7 +18,7 @@ class InstallGuards(unittest.TestCase):
             (root / "util_functions.sh").write_text('''
 DATA_ROOT="$TEST_RUNTIME"
 repair_runtime() { mkdir -p "$TEST_RUNTIME"; touch "$TEST_RUNTIME/prepared"; }
-normalize_boot_hash() { :; }
+remove_entry_links() { :; }
 ''')
             runtime = root / "runtime"
             result = subprocess.run(["sh", "-c", '''

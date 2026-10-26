@@ -1,11 +1,14 @@
 # Duck ToolBox
 
-Duck ToolBox is a root module (KernelSU, APatch or Magisk) with two jobs, and no WebUI:
+Duck ToolBox is a root module (KernelSU, APatch or Magisk) with three jobs, and no WebUI:
 
 - keep the target list of the active keystore module (Tricky Store, TEESimulator or
   OhMyKeymint) in step with the installed apps;
 - keep that module's keybox valid with RKP keyboxes issued by this device's own
-  Qualcomm KeyMint TA, renewing each one a day before it expires.
+  KeyMint TA (Qualcomm, or MediaTek through AIDL V1), renewing each one a day before it
+  expires;
+- after each issuance, generate a Play Integrity fingerprint, apply it with a matching
+  keystore security patch and restart the Play Integrity processes.
 
 Its state is shown as the module description in the root manager, for example
 `✅ Keybox valid until 2026-10-30 05:26 UTC, renews after 2026-10-29 05:26 UTC | Tricky Store (TS): 23 targets`.
@@ -32,6 +35,24 @@ and every other part of the keystore module's configuration are left as they are
 layouts: Tricky Store `config.ini` and legacy `target.txt`, TEESimulator `config.json`, and
 OhMyKeymint `injector.toml`.
 
+## Play Integrity
+
+A bundled, independently built GPLv3 engine derived from Play Integrity Fork (Zygisk
+libraries, DroidGuard/Play Store injection and its sensitive-property scripts) lives in
+`components/play-integrity`; see its [README](components/play-integrity/README.md) and
+[licensing boundaries](THIRD_PARTY_NOTICES.md). All of its options are fixed to the
+defaults: full mode only (no scripts-only mode), no property skips, strong generation
+without device matching, and the bundled ROM app replacement list. Injection requires
+Zygisk and a saved fingerprint; it stops when this module is disabled or when another
+Play Integrity Fork/USNF module is enabled.
+
+The fingerprint is refreshed only after a keybox is issued, and also once while the engine
+has no fingerprint at all; nothing checks for updates otherwise. A refresh generates a
+Pixel Canary fingerprint, applies it together with the active keystore module's security
+patch policy (`SECURITY_PATCH` from the fingerprint, when it gives one date) as one
+recoverable transaction, then restarts DroidGuard and the Play Store. A failed refresh is
+retried at most hourly by the renewal checks until it succeeds.
+
 ## Keybox renewal
 
 `duckd renew` reads the keybox of the active keystore module and takes the earliest
@@ -51,7 +72,8 @@ Each run rewrites the `description=` line of `module.prop` with one of:
 | Last attempt failed | `❌ Keybox expires <expiry>; renewal failed (<code>: <reason>), retry after <time>` |
 | No readable keybox | `⏳` or `❌` followed by `No usable keybox; ...` |
 
-followed by the keystore module's state (`Tricky Store (TS): 23 targets`, or a notice when
+then the Play Integrity state (`✅ PIF <model> (<patch>)`, `⏳ PIF fingerprint pending` or
+`❌ PIF fingerprint failed (...)`), then the keystore module's state (`Tricky Store (TS): 23 targets`, or a notice when
 no keystore module is installed). Installing this module counts as acknowledging the
 issuer's limitations below: only some devices work, and only RKP certificates are issued.
 
@@ -59,11 +81,14 @@ issuer's limitations below: only some devices work, and only RKP certificates ar
 
 - Asks this device's Qualcomm KeyMint TA for a `CSR_V2` over a P-256 key we generated,
   submits the result to Google's RKP server and exports `keybox.xml` with the private key.
-- Supports a legacy V1 AIDL path for Qualcomm PureSoft firmware with a zero HBK.
+- Supports a legacy V1 AIDL path for Qualcomm PureSoft and MediaTek firmware with a zero HBK.
   The public-key MAC and CSR are constructed in Rust; a small isolated bridge calls
   the device's own AIDL proxy, using the EEK curve reported by its HAL.
   This method is adapted from [LazyBonesLZY's rkp-v1-oracle](https://github.com/LazyBonesLZY/rkp-v1-oracle)
   at revision `b28480c98c1256753aed140c6ff86d0336f55c45` (MIT; see `module/licenses/rkp-v1-oracle.txt`).
+  MediaTek uses only this AIDL adapter. Native V1 and V2 require Qualcomm identification
+  as well as the vendor library and device node. Real-device
+  compatibility and production server acceptance for MediaTek remain unverified.
 - `rkp-device provision --protocol` selects `auto`, `v1`, `v2` or `v1-native`; `renew` uses `auto`.
   Automatic mode tries the available methods in order: V2, AIDL V1, then native V1.
   Each failed signing, CSR validation, server request or certificate validation moves
@@ -105,15 +130,20 @@ issuer's limitations below: only some devices work, and only RKP certificates ar
 crates/
   duck-core/          Shared runtime: paths, JSON envelope, Feature trait, command log,
                       and a Sysroot so every feature is testable off-device.
-  duck-platform/      Device adapters: props, pm, modules, root managers, HTTP.
+  duck-platform/      Device adapters: props, pm, modules, root managers, SoC, HTTP.
   duck-rkp/           RKP protocol library: CBOR/COSE, CSR verification, RKP server client,
                       keybox XML.
   duck-rkp-device/    Device RKP issuer.
-  duck-tricky-store/  Keystore module adapters, target list, keybox install and expiry.
-  duckd/              The binary: `rkp-device` and `tricky-store` subcommands, and `renew`,
-                      which joins the two and writes module.prop.
+  duck-tricky-store/  Keystore module adapters, target list, keybox install and expiry,
+                      security patch policy.
+  duck-play-integrity/ MIT adapter for the engine's process interface.
+  duckd/              The binary: `rkp-device`, `tricky-store`, `play-integrity` and
+                      `integrity-transaction` subcommands, and `renew`, which joins them
+                      and writes module.prop.
+components/
+  play-integrity/     The GPLv3 engine: CLI, Zygisk/Java injection and boot scripts.
 xtask/                Repository checks (`cargo xtask line-limit`).
-module/               Module payload: scripts and the backend binary.
+module/               Module payload: scripts, then the backend binary and engine.
 ```
 
 Every command prints one JSON envelope: `{ ok, api, command, data, error, ts }`.
@@ -122,15 +152,17 @@ Every command prints one JSON envelope: `{ ok, api, command, data, error, ts }`.
 
 | Stage | What runs |
 | --- | --- |
-| `customize.sh` | Checks the root manager, ABI and API level; prepares `/data/adb/duck-toolbox`; removes the WebUI/action links earlier releases put into the keystore module; requests hot install from metamodules that support it. |
+| `customize.sh` | Checks the root manager, ABI and API level; prepares `/data/adb/duck-toolbox`; removes the WebUI/action links earlier releases put into the keystore module; runs the engine's `stage setup`; requests hot install from metamodules that support it. |
+| `post-fs-data.sh` / `late-load.sh` | The engine's `stage early`: DenyList, ROM app replacement and early sensitive properties. KernelSU's late-load mode runs `late-load.sh` instead. |
 | `service.sh` | Repairs the runtime directory. On Magisk, which has no boot-completed stage, it waits for boot and runs `boot-completed.sh`. |
-| `boot-completed.sh` | Runs `tricky-store auto-apply` and starts its package-change watcher, starts the 30-minute `renew` loop, and sets the TSupport-Advance stop flag when that module is installed. |
-| `action.sh` | `renew --force`, then prints the new description. |
-| `uninstall.sh` | Removes leftover entry links, the TSupport-Advance flag and `/data/adb/duck-toolbox`, including issued keyboxes and private keys. |
+| `boot-completed.sh` | Runs the engine's `stage late` (late sensitive properties), runs `tricky-store auto-apply` and starts its package-change watcher, starts the 30-minute `renew` loop, and sets the TSupport-Advance stop flag when that module is installed. |
+| `action.sh` | `renew --force` (issuance, then a fingerprint refresh), prints the new description and keeps it on screen for 30 seconds. |
+| `uninstall.sh` | Runs the engine's `stage uninstall` (restores DenyList, SELinux and persistent property changes), removes leftover entry links, the TSupport-Advance flag and `/data/adb/duck-toolbox`, including issued keyboxes and private keys. |
 
 Saved data lives in `/data/adb/duck-toolbox/var`, outside the module directory, so updates
-keep it: `renew.json` (last attempt), `tricky-store.toml` (apps already seen), and each
-issuance's private run directory under `outputs/`.
+keep it: `renew.json` (last attempts and pending fingerprint), `tricky-store.toml` (apps
+already seen), the configuration transaction journal, and each issuance's private run
+directory under `outputs/`. The engine keeps its fingerprint in `/data/adb/play-integrity`.
 
 **Updates.** Root managers follow `updateJson` in `module.prop`. CI uploads the module
 directory as `duck-toolbox-<version>-<commit count>-canary`, and the commit count is its
@@ -162,7 +194,9 @@ prerelease can be promoted by clearing its prerelease flag.
 duckd features
 duckd renew [--force]
 duckd rkp-device status | provision [--protocol auto|v1|v2|v1-native] --acknowledge-limitations
-duckd tricky-store status | save | auto-apply [--refresh]
+duckd tricky-store status | save | auto-apply [--refresh] | patch preview|apply|restore
+duckd play-integrity status | config | preview | apply | restore | task-start | task-status | restart
+duckd integrity-transaction status | apply | recover
 duckd tricky-store keybox install <file> | import | set-aosp | generate | fetch --url <u> [--decode <steps>]
 duckd tricky-store keybox providers list | save | reset | import <file> | import-content | export [--path <file>]
 duckd tricky-store apps xposed | denylist | unnecessary [--refresh]
@@ -178,6 +212,8 @@ Requirements:
 - JDK 17 or newer and Android SDK Build Tools 36.0.0 for the embedded V1 bridge.
   Set `ANDROID_HOME` or `ANDROID_SDK_ROOT`; `ANDROID_BUILD_TOOLS_VERSION` can select
   another installed version. Set `JAVA_HOME` or put `java` and `javac` on `PATH`.
+- For the Play Integrity engine: Python 3.12+, JDK 21, Android SDK 37 and Build Tools
+  37.0.0 (see `components/play-integrity/README.md`).
 - The device RKP issuer only builds for unix targets, so host tests need Linux or macOS.
 
 ```bash
@@ -185,6 +221,9 @@ cargo xtask line-limit
 cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 python3 scripts/test_rkp_v1_bridge.py  # AIDL fixture, framing and error propagation (JDK)
+cargo test --manifest-path components/play-integrity/Cargo.toml
+python3 scripts/test-play-integrity-scripts.py
+python3 scripts/build-play-integrity.py  # engine payload into module/play-integrity and module/zygisk
 
 # Device binary, e.g. with the NDK's clang as linker
 cargo build --release --package duckd --target aarch64-linux-android
@@ -194,6 +233,10 @@ On Windows, `pwsh ./scripts/build.ps1 -PackageModule` builds the backend with `c
 and writes the module zip to `dist/`.
 
 ## Acknowledgements
+
+- The Play Integrity engine derives from osm0sis, chiteroman and contributors'
+  [Play Integrity Fork](https://github.com/osm0sis/PlayIntegrityFork) (GPLv3); its
+  corresponding source is linked from the module's `licenses/play-integrity/SOURCE.txt`.
 
 - The keystore module adapters, the unnecessary-apps list and the target list rules come
   from KOWX712's

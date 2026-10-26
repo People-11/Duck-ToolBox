@@ -41,7 +41,7 @@ class CaptionTests(unittest.TestCase):
             GIT_SHA=full_sha,
         )
         self.assertIn(
-            f"https://github.com/eltavine/Duck-ToolBox/tree/{full_sha}/components/play-integrity",
+            f"https://github.com/People-11/Duck-ToolBox/tree/{full_sha}/components/play-integrity",
             caption,
         )
 

@@ -3,7 +3,7 @@
 use crate::{Engine, command};
 use anyhow::{Result, bail};
 use std::time::Duration;
-pub fn run(engine: &Engine, phase: &str, mode: &str) -> Result<String> {
+pub fn run(engine: &Engine, phase: &str) -> Result<String> {
     let ksu = engine.device("/data/adb/ksud").exists() || engine.device("/data/adb/ksu").exists();
     let apatch =
         !ksu && (engine.device("/data/adb/apd").exists() || engine.device("/data/adb/ap").exists());
@@ -19,8 +19,7 @@ pub fn run(engine: &Engine, phase: &str, mode: &str) -> Result<String> {
             .env(
                 "PIF_ENGINE_ROOT",
                 engine.module.parent().unwrap_or(&engine.module),
-            )
-            .env("PIF_ENGINE_MODE", mode),
+            ),
         Duration::from_secs(if ["cleanup", "uninstall"].contains(&phase) {
             5
         } else {

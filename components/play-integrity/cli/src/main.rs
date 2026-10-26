@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Play Integrity Fork derivative; see the engine LICENSE and UPSTREAM.json.
 // Modified 2026-10-24: independent CLI and versioned process interface.
+// Modified 2026-10-26: no standalone migration or activity probe commands.
 mod command;
 mod config;
 mod denylist;
 mod files;
-mod inspection;
-mod library;
 mod network;
 mod operations;
 mod paths;
-mod power;
 mod rules;
 mod selinux;
-mod shutdown;
 mod stages;
 mod tasks;
 
@@ -37,24 +34,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Exit successfully when this engine owns the current sensitive-property handler.
-    Active,
-    /// Operations: status, config, preview, apply, restore, options, task-start,
-    /// task-status, task-cancel, restart, diagnose. Optional JSON input on stdin.
+    /// Operations: status, config, preview, prepare, apply, restore, task-start,
+    /// task-status, restart. Optional JSON input on stdin.
     Request { operation: String },
     /// Run an installation, early-boot, late-boot or uninstall lifecycle stage.
     Stage { phase: String },
-    /// Safely migrate a file without evaluating configuration as shell code.
-    MigrateFile {
-        source: PathBuf,
-        output: PathBuf,
-        #[arg(long, default_value = "prop")]
-        format: String,
-        #[arg(long)]
-        advanced: bool,
-        #[arg(long)]
-        force: bool,
-    },
     /// HTTPS fetch adapter for the bundled fingerprint generator.
     Fetch {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -114,10 +98,6 @@ impl Engine {
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    if matches!(cli.command, Command::Active) {
-        let active = Engine::discover().and_then(|engine| operations::active(&engine));
-        std::process::exit(if active.unwrap_or(false) { 0 } else { 1 });
-    }
     if let Command::Fetch { args } = cli.command {
         if let Err(error) = network::fetch(&args).await {
             eprintln!("{error:#}");
@@ -130,32 +110,6 @@ async fn main() {
         match cli.command {
             Command::Worker { id } => tasks::work(&engine, &id),
             Command::Stage { phase } => operations::stage(&engine, &phase),
-            Command::MigrateFile {
-                source,
-                output,
-                format,
-                advanced,
-                force,
-            } => {
-                let raw = files::read(&source)?;
-                if raw.trim().is_empty() {
-                    bail!("migration source is empty or missing: {}", source.display());
-                }
-                let mut entries = config::parse(&raw, "auto")?;
-                config::migrate(&mut entries, advanced, force);
-                config::validate(&entries)?;
-                if !["prop", "json"].contains(&format.as_str()) {
-                    bail!("unsupported output format");
-                }
-                if output.exists() {
-                    files::atomic(
-                        &output.with_extension(format!("{format}.bak")),
-                        files::read(&output)?.as_bytes(),
-                    )?;
-                }
-                files::atomic(&output, config::serialize(&entries, &format)?.as_bytes())?;
-                Ok(json!({"output":output,"warnings":rules::inspect(&entries)}))
-            }
             Command::Request { operation } => {
                 let mut input = String::new();
                 io::stdin()
@@ -172,7 +126,6 @@ async fn main() {
                 operations::run(&engine, &operation, request)
             }
             Command::Fetch { .. } => unreachable!(),
-            Command::Active => unreachable!(),
         }
     }
     .await;

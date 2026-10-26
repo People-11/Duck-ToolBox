@@ -26,11 +26,7 @@ const LOCKFILES: &[&str] = &[
 ];
 
 /// Build output that may exist in a checkout but is not source.
-const OUTPUT_DIRS: &[&str] = &[
-    "target/",
-    "module/play-integrity/",
-    "module/zygisk/",
-];
+const OUTPUT_DIRS: &[&str] = &["target/", "module/play-integrity/", "module/zygisk/"];
 
 pub fn run(repo_root: &Path) -> Result<()> {
     let mut offenders = Vec::new();

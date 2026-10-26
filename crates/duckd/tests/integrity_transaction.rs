@@ -1,4 +1,4 @@
-#![cfg(all(unix, feature = "play-integrity"))]
+#![cfg(unix)]
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -21,7 +21,6 @@ fn process_termination_leaves_a_confirmable_recovery_record() {
 base=$(dirname "$0")
 cat >/dev/null
 case "$2" in
- power) printf '{"ok":true,"api":1,"data":{"stop_revision":"initial"}}' ;;
  prepare) printf '{"ok":true,"api":1,"data":{"backup":"fixture-backup"}}' ;;
  apply)
    printf changed > "$base/state"
@@ -96,58 +95,5 @@ esac
     );
     assert!(!root.path().join("play-integrity/state").exists());
     let journal: Value = serde_json::from_str(&fs::read_to_string(journal_path).unwrap()).unwrap();
-    assert_eq!(journal["phase"], "restored");
-}
-
-#[test]
-fn a_new_stop_during_publication_rolls_back_the_configuration_transaction() {
-    use std::os::unix::fs::PermissionsExt;
-    let root = tempfile::tempdir().unwrap();
-    fs::create_dir_all(root.path().join("play-integrity")).unwrap();
-    fs::create_dir(root.path().join("bin")).unwrap();
-    fs::write(root.path().join("module.prop"), "id=duck-toolbox\n").unwrap();
-    let engine = root.path().join("play-integrity/pif-engine");
-    fs::write(&engine,r#"#!/bin/sh
-base=${0%/*}
-cat >/dev/null
-case "$2" in
-power)
- revision=initial; [ ! -f "$base/stopped" ] || revision=later
- printf '{"ok":true,"api":1,"data":{"stop_revision":"%s"}}' "$revision" ;;
-prepare) printf '{"ok":true,"api":1,"data":{"backup":"fixture-backup"}}' ;;
-apply)
- touch "$base/config" "$base/stopped"
- printf '{"ok":true,"api":1,"data":{"backup":"fixture-backup","config":{},"restart_required":true}}' ;;
-restore)
- rm -f "$base/config"
- printf '{"ok":true,"api":1,"data":{"restart_required":true}}' ;;
-esac
-"#).unwrap();
-    fs::set_permissions(&engine, fs::Permissions::from_mode(0o700)).unwrap();
-    let mut child = Command::new(env!("CARGO_BIN_EXE_duckd"))
-        .env("DUCK_TOOLBOX_ROOT", root.path())
-        .env("DUCK_TOOLBOX_DATA_ROOT", root.path().join("data"))
-        .args(["integrity-transaction", "apply", "--stdin-json"])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    serde_json::to_writer(
-        child.stdin.take().unwrap(),
-        &json!({"engine":{"content":"MODEL=A","revision":"fixture"}}),
-    )
-    .unwrap();
-    let output = child.wait_with_output().unwrap();
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stdout).contains("engine was stopped"));
-    assert!(!root.path().join("play-integrity/config").exists());
-    let journal: Value = serde_json::from_slice(
-        &fs::read(
-            root.path()
-                .join("data/var/integrity-transaction/journal.json"),
-        )
-        .unwrap(),
-    )
-    .unwrap();
     assert_eq!(journal["phase"], "restored");
 }

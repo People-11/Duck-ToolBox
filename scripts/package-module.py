@@ -63,7 +63,7 @@ def validate():
         require(MODULE / "licenses/play-integrity" / name)
     check_source_checkout(manifest.get("source_commit"))
     source_url = (
-        "https://github.com/eltavine/Duck-ToolBox/tree/"
+        "https://github.com/People-11/Duck-ToolBox/tree/"
         + manifest["source_commit"] + "/components/play-integrity"
     )
     source_notice = MODULE / "licenses/play-integrity/SOURCE.txt"

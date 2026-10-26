@@ -31,7 +31,6 @@ fn fixture(script: &str) -> tempfile::TempDir {
     let root = tempfile::tempdir().unwrap();
     fs::create_dir_all(root.path().join("module/scripts")).unwrap();
     fs::write(root.path().join("module/scripts/autopif4.sh"), script).unwrap();
-    fs::write(root.path().join("module/scripts/migrate.sh"), "exit 0\n").unwrap();
     root
 }
 fn terminal(root: &std::path::Path, id: &Value) -> Value {
@@ -46,49 +45,18 @@ fn terminal(root: &std::path::Path, id: &Value) -> Value {
     }
 }
 #[test]
-fn generation_previews_without_publishing_and_import_keeps_source() {
+fn generation_previews_without_publishing() {
     let root = fixture(
         "echo 'fetching fixture'; printf 'MODEL=Fixture\nSECURITY_PATCH=2026-10-05\n' > custom.pif.prop\n",
     );
-    let status = request(root.path(), "status", json!({}));
-    assert_eq!(status["data"]["options"]["enabled"], true);
-    let started = request(root.path(), "task-start", json!({"strong":true}));
+    let started = request(root.path(), "task-start", json!({}));
     assert_eq!(started["ok"], true, "{started}");
     let result = terminal(root.path(), &started["data"]["id"]);
     assert_eq!(result["data"]["state"], "completed", "{result}");
     assert_eq!(result["data"]["result"]["entries"]["MODEL"], "Fixture");
-    assert!(!root.path().join("data/custom.pif.json").exists());
-    fs::create_dir_all(root.path().join("sys/source")).unwrap();
-    fs::write(
-        root.path().join("sys/source/pif.prop"),
-        "MODEL=Original\nEXTRA=keep",
-    )
-    .unwrap();
-    let imported = request(
-        root.path(),
-        "import-preview",
-        json!({"source":"/source/pif.prop"}),
-    );
-    assert_eq!(imported["data"]["entries"]["EXTRA"], "keep");
-    assert_eq!(
-        fs::read_to_string(root.path().join("sys/source/pif.prop")).unwrap(),
-        "MODEL=Original\nEXTRA=keep"
-    );
-}
-#[test]
-fn cancellation_terminates_worker_and_preserves_live_config() {
-    let root = fixture("sleep 30; echo MODEL=unexpected > custom.pif.prop\n");
-    let started = request(root.path(), "task-start", json!({}));
-    let id = &started["data"]["id"];
-    assert_eq!(
-        request(root.path(), "task-cancel", json!({"id":id}))["ok"],
-        true
-    );
-    let result = terminal(root.path(), id);
-    assert_eq!(result["data"]["state"], "cancelled", "{result}");
+    assert_eq!(result["data"]["result"]["suggested_patch"], "2026-10-05");
     assert!(!root.path().join("data/custom.pif.json").exists());
 }
-
 #[cfg(unix)]
 #[test]
 fn every_job_exit_stops_descendants_that_ignore_termination() {
@@ -102,11 +70,10 @@ fn every_job_exit_stops_descendants_that_ignore_termination() {
             }
         }
     }
-    for scenario in ["cancel", "timeout", "overflow", "complete"] {
+    for scenario in ["overflow", "complete"] {
         let ending = match scenario {
             "overflow" => "head -c 1200000 /dev/zero; sleep 30",
-            "complete" => "printf 'MODEL=Fixture\\n' > custom.pif.prop",
-            _ => "sleep 30",
+            _ => "printf 'MODEL=Fixture\\n' > custom.pif.prop",
         };
         let root = fixture(&format!(
             r#"
@@ -116,7 +83,7 @@ while [ ! -s "$PIF_ENGINE_DATA/heartbeat" ]; do sleep 0.01; done
 {ending}
 "#
         ));
-        let started = request(root.path(), "task-start", json!({"timeout_seconds":1}));
+        let started = request(root.path(), "task-start", json!({}));
         assert_eq!(started["ok"], true, "{started}");
         let mut cleanup = Cleanup(vec![started["data"]["pid"].as_u64().unwrap() as i32]);
         let heartbeat = root.path().join("data/heartbeat");
@@ -132,18 +99,11 @@ while [ ! -s "$PIF_ENGINE_DATA/heartbeat" ]; do sleep 0.01; done
                 .parse()
                 .unwrap(),
         );
-        let id = &started["data"]["id"];
-        if scenario == "cancel" {
-            assert_eq!(
-                request(root.path(), "task-cancel", json!({"id":id}))["ok"],
-                true
-            );
-        }
-        let finished = terminal(root.path(), id);
-        let expected = match scenario {
-            "cancel" => "cancelled",
-            "complete" => "completed",
-            _ => "failed",
+        let finished = terminal(root.path(), &started["data"]["id"]);
+        let expected = if scenario == "complete" {
+            "completed"
+        } else {
+            "failed"
         };
         assert_eq!(
             finished["data"]["state"], expected,
@@ -160,7 +120,7 @@ while [ ! -s "$PIF_ENGINE_DATA/heartbeat" ]; do sleep 0.01; done
     }
 }
 #[test]
-fn options_conflicts_and_stale_apply_are_explicit() {
+fn conflicts_module_flags_and_stale_apply_are_explicit() {
     let root = fixture("exit 1\n");
     let conflict = root.path().join("sys/data/adb/modules/playintegrityfix");
     fs::create_dir_all(&conflict).unwrap();
@@ -185,24 +145,14 @@ fn options_conflicts_and_stale_apply_are_explicit() {
         )["ok"],
         false
     );
-    let disabled = request(
-        root.path(),
-        "options",
-        json!({"enabled":false,"mode":"scripts-only"}),
-    );
-    assert_eq!(disabled["ok"], true);
+    fs::write(root.path().join("disable"), "").unwrap();
     assert_eq!(
         request(root.path(), "status", json!({}))["data"]["state"],
         "disabled"
     );
-    assert_eq!(
-        request(
-            root.path(),
-            "options",
-            json!({"app_replace_list":"/system/../data"})
-        )["ok"],
-        false
-    );
+    for removed in ["options", "disable", "power", "task-cancel", "profile-list"] {
+        assert_eq!(request(root.path(), removed, json!({}))["ok"], false);
+    }
 }
 #[test]
 fn insecure_fetch_is_rejected_without_network() {
@@ -235,80 +185,14 @@ fn magisk_directory_is_not_zygisk_runtime_evidence() {
 }
 
 #[test]
-fn standalone_file_migration_preserves_shell_metacharacters_as_data() {
-    let root = tempfile::tempdir().unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o755)).unwrap();
-    }
-    let source = root.path().join("source.json");
-    let output = root.path().join("custom.pif.json");
-    let marker = root.path().join("must-not-exist");
-    let payload = format!(r#"$(touch {}) ' \" quoted"#, marker.display());
-    fs::write(
-        &source,
-        serde_json::to_vec(&json!({"EXTRA":payload,"MODEL":"a"})).unwrap(),
-    )
-    .unwrap();
-    fs::write(&output, "original").unwrap();
-    let result = Command::new(env!("CARGO_BIN_EXE_pif-engine"))
-        .arg("migrate-file")
-        .arg(&source)
-        .arg(&output)
-        .args(["--advanced", "--format", "json"])
-        .output()
-        .unwrap();
-    assert!(
-        result.status.success(),
-        "{}",
-        String::from_utf8_lossy(&result.stdout)
-    );
-    let migrated: Value = serde_json::from_slice(&fs::read(&output).unwrap()).unwrap();
-    assert_eq!(migrated["EXTRA"], payload);
-    assert_eq!(
-        fs::read_to_string(root.path().join("custom.pif.json.bak")).unwrap(),
-        "original"
-    );
-    assert!(!marker.exists());
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        assert_eq!(
-            fs::metadata(root.path()).unwrap().permissions().mode() & 0o777,
-            0o755
-        );
-    }
-}
-
-#[test]
-fn timed_out_jobs_fail_without_publishing() {
-    let root = fixture("sleep 30; echo MODEL=unexpected > custom.pif.prop\n");
-    let started = request(root.path(), "task-start", json!({"timeout_seconds":1}));
-    let result = terminal(root.path(), &started["data"]["id"]);
-    assert_eq!(result["data"]["state"], "failed", "{result}");
-    assert!(
-        result["data"]["error"]
-            .as_str()
-            .unwrap()
-            .contains("timed out")
-    );
-    assert!(!root.path().join("data/custom.pif.json").exists());
-    assert_eq!(
-        request(root.path(), "task-start", json!({"timeout_seconds":121}))["ok"],
-        false
-    );
-}
-
-#[test]
-fn lifecycle_uses_cleanup_when_disabled_and_records_the_boot_options() {
+fn lifecycle_uses_cleanup_when_disabled_and_records_boot_state() {
     let root = fixture("exit 0\n");
     fs::write(
         root.path().join("module/scripts/stage.sh"),
         "printf '%s\\n' \"$1\" >> \"$PIF_ENGINE_DATA/stage.trace\"\n",
     )
     .unwrap();
-    request(root.path(), "options", json!({"enabled":false}));
+    fs::write(root.path().join("disable"), "").unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_pif-engine"))
         .args(["stage", "early"])
         .env("PIF_ENGINE_DATA", root.path().join("data"))
@@ -323,34 +207,11 @@ fn lifecycle_uses_cleanup_when_disabled_and_records_the_boot_options() {
     );
     assert_eq!(
         fs::read_to_string(root.path().join("data/stage.trace")).unwrap(),
-        "cleanup\ncleanup\n"
+        "cleanup\n"
     );
     let evidence: Value =
         serde_json::from_slice(&fs::read(root.path().join("data/boot.json")).unwrap()).unwrap();
-    assert_eq!(evidence["options"]["enabled"], false);
-}
-
-#[test]
-fn disable_cancels_generation_and_survives_broken_options() {
-    let root = fixture("sleep 30; echo MODEL=unexpected > custom.pif.prop\n");
-    let started = request(root.path(), "task-start", json!({}));
-    fs::write(root.path().join("data/options.json"), "{broken").unwrap();
-    let stopped = request(root.path(), "disable", json!({}));
-    assert_eq!(stopped["ok"], true, "{stopped}");
-    assert_eq!(stopped["data"]["enabled"], false);
-    assert_eq!(
-        terminal(root.path(), &started["data"]["id"])["data"]["state"],
-        "cancelled"
-    );
-    assert_eq!(
-        request(root.path(), "power", json!({}))["data"]["enabled"],
-        false
-    );
-    assert_eq!(request(root.path(), "task-start", json!({}))["ok"], false);
-    assert_eq!(
-        fs::read_to_string(root.path().join("data/options.json")).unwrap(),
-        "{broken"
-    );
+    assert_eq!(evidence["active"], false);
 }
 
 #[cfg(unix)]
@@ -384,19 +245,18 @@ esac
         )["ok"],
         true
     );
-    let early = || {
+    let stage = |phase: &str| {
         Command::new(env!("CARGO_BIN_EXE_pif-engine"))
-            .args(["stage", "early"])
+            .args(["stage", phase])
             .env("PIF_ENGINE_DATA", root.path().join("data"))
             .env("PIF_ENGINE_MODULE", root.path().join("module"))
             .env("PIF_ENGINE_SYSROOT", root.path().join("sys"))
             .output()
             .unwrap()
     };
-    assert!(early().status.success());
+    assert!(stage("early").status.success());
     assert_eq!(fs::read_to_string(magisk_dir.join("list")).unwrap(), "");
-    let stopped = request(root.path(), "disable", json!({}));
-    assert_eq!(stopped["data"]["cleanup_pending"], false, "{stopped}");
+    assert!(stage("uninstall").status.success());
     let entries = |s: &str| {
         s.lines()
             .map(str::to_owned)
@@ -406,22 +266,13 @@ esac
         entries(&fs::read_to_string(magisk_dir.join("list")).unwrap()),
         entries(original)
     );
-    assert_eq!(
-        request(
-            root.path(),
-            "options",
-            json!({"enabled":true,"expected_stop_revision":stopped["data"]["stop_revision"]})
-        )["ok"],
-        true
-    );
-    assert!(early().status.success());
+    assert!(stage("early").status.success());
     fs::write(
         magisk_dir.join("list"),
         "com.google.android.gms|com.google.android.gms.external\n",
     )
     .unwrap();
-    let stopped = request(root.path(), "disable", json!({}));
-    assert_eq!(stopped["data"]["cleanup_pending"], true);
+    assert!(!stage("uninstall").status.success());
     let saved = fs::read_to_string(magisk_dir.join("list")).unwrap();
     assert!(saved.contains(".external"));
     assert!(!saved.contains("com.google.android.gms|com.google.android.gms\n"));
@@ -431,10 +282,7 @@ esac
         "com.android.vending|com.android.vending\n",
     )
     .unwrap();
-    assert_eq!(
-        request(root.path(), "disable", json!({}))["data"]["cleanup_pending"],
-        false
-    );
+    assert!(stage("uninstall").status.success());
     assert_eq!(
         entries(&fs::read_to_string(magisk_dir.join("list")).unwrap()),
         entries(original)

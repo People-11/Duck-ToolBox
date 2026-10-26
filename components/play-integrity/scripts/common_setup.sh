@@ -2,13 +2,13 @@
 # Source: https://github.com/osm0sis/PlayIntegrityFork/tree/23ec56c2440c4fd1a5e893a23ef7861d6366a828
 # SPDX-License-Identifier: GPL-3.0-only
 # Modified 2026-10-24: independent engine packaging, bounded configuration and runtime operations.
+# Modified 2026-10-26: fixed default options; no scripts-only mode, skips or stop gate.
 pif_running || return 0
 # Replace/hide conflicting custom ROM injection app folders/files to disable them
 MAGISK_WHITEOUT=false
 [ -f /data/adb/magisk/util_functions.sh ] && [ "$(grep MAGISK_VER_CODE /data/adb/magisk/util_functions.sh | cut -d= -f2)" -ge 28102 ] && MAGISK_WHITEOUT=true;
 
 LIST=$PIF_ENGINE_SCRIPTS/app_replace_list.txt
-[ -f "$PIF_ENGINE_DATA/custom.app_replace_list.txt" ] && LIST=$PIF_ENGINE_DATA/custom.app_replace_list.txt
 . "$PIF_ENGINE_SCRIPTS/path_rules.sh"
 pif_validate_list "$LIST" || exit 1
 for APP in $(grep -v '^[[:space:]]*#' "$LIST"); do
@@ -69,27 +69,23 @@ for APP in $(grep -v '^[[:space:]]*#' "$LIST"); do
     fi
 done
 
-if ! $SKIPPERSISTPROP; then
-    # Work around custom ROM PropImitationHooks conflict when their persist props don't exist
-    if resetprop | grep -qE "ro.aospa.version|net.pixelos.version|ro.afterlife.version" || [ -f /data/system/gms_certified_props.json ]; then
-        for PROP in persist.sys.pihooks.first_api_level persist.sys.pihooks.security_patch; do
-            resetprop | grep -q "\[$PROP\]" || persistprop "$PROP" ""
-        done
-    fi
+# Work around custom ROM PropImitationHooks conflict when their persist props don't exist
+if resetprop | grep -qE "ro.aospa.version|net.pixelos.version|ro.afterlife.version" || [ -f /data/system/gms_certified_props.json ]; then
+    for PROP in persist.sys.pihooks.first_api_level persist.sys.pihooks.security_patch; do
+        resetprop | grep -q "\[$PROP\]" || persistprop "$PROP" ""
+    done
+fi
 
-    # Work around supported custom ROM PropImitationHooks/PixelPropsUtils (and hybrids) conflict when spoofProvider is disabled
-    if resetprop | grep -qE "persist.sys.pihooks|persist.sys.entryhooks|persist.sys.spoof|persist.sys.pixelprops|persist.sys.pp" || [ -f /data/system/gms_certified_props.json ]; then
-        persistprop persist.sys.pihooks.disable.gms_props true
-        persistprop persist.sys.pihooks.disable.gms_key_attestation_block true
-        persistprop persist.sys.entryhooks_enabled false
-        persistprop persist.sys.spoof.gms false
-        persistprop persist.sys.pixelprops.gms false
-        persistprop persist.sys.pixelprops.gapps false
-        persistprop persist.sys.pixelprops.google false
-        persistprop persist.sys.pixelprops.pi false
-        persistprop persist.sys.pp.gms false
-        persistprop persist.sys.pp.finsky false
-    fi
-elif [ -f "$PIF_ENGINE_DATA/uninstall.sh" ]; then
-    sh -e "$PIF_ENGINE_DATA/uninstall.sh" && rm -f "$PIF_ENGINE_DATA/uninstall.sh"
+# Work around supported custom ROM PropImitationHooks/PixelPropsUtils (and hybrids) conflict when spoofProvider is disabled
+if resetprop | grep -qE "persist.sys.pihooks|persist.sys.entryhooks|persist.sys.spoof|persist.sys.pixelprops|persist.sys.pp" || [ -f /data/system/gms_certified_props.json ]; then
+    persistprop persist.sys.pihooks.disable.gms_props true
+    persistprop persist.sys.pihooks.disable.gms_key_attestation_block true
+    persistprop persist.sys.entryhooks_enabled false
+    persistprop persist.sys.spoof.gms false
+    persistprop persist.sys.pixelprops.gms false
+    persistprop persist.sys.pixelprops.gapps false
+    persistprop persist.sys.pixelprops.google false
+    persistprop persist.sys.pixelprops.pi false
+    persistprop persist.sys.pp.gms false
+    persistprop persist.sys.pp.finsky false
 fi

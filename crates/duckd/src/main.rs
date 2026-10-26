@@ -2,6 +2,7 @@
 //! invocation prints exactly one JSON envelope on stdout.
 
 mod builtin;
+mod fingerprint;
 mod integrity_transaction;
 mod renew;
 

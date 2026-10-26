@@ -129,12 +129,12 @@ def main():
     # Corresponding source lives in the exact published Git commit, not the module ZIP.
     commit = source_revision()
     if commit:
-        source_url = f"https://github.com/eltavine/Duck-ToolBox/tree/{commit}/components/play-integrity"
+        source_url = f"https://github.com/People-11/Duck-ToolBox/tree/{commit}/components/play-integrity"
         (notices / "SOURCE.txt").write_text(
             f"Corresponding Play Integrity GPLv3 source (Git commit {commit}):\n"
             f"{source_url}\n"
             "Build and dependency retrieval script:\n"
-            f"https://github.com/eltavine/Duck-ToolBox/blob/{commit}/scripts/build-play-integrity.py\n"
+            f"https://github.com/People-11/Duck-ToolBox/blob/{commit}/scripts/build-play-integrity.py\n"
             "This script retrieves pinned dependency sources and applies the recorded ShadowHook change.\n"
         )
     (notices.parent / "play-integrity-source.tar.gz").unlink(missing_ok=True)

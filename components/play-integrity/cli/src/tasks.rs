@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Modified 2026-10-24: isolated fingerprint jobs, bounded lifetime and cancellation.
+// Modified 2026-10-26: fixed default generation options (strong, no device match, 120 s).
 use crate::{Engine, command::Process, config, files};
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
@@ -16,18 +17,9 @@ fn task_dir(engine: &Engine, id: &str) -> Result<std::path::PathBuf> {
     }
     Ok(engine.data.join("jobs").join(id))
 }
-pub fn start(engine: &Engine, input: &Value) -> Result<Value> {
-    if let Some(value) = input.get("timeout_seconds")
-        && !value
-            .as_u64()
-            .is_some_and(|seconds| (1..=120).contains(&seconds))
-    {
-        bail!("timeout_seconds must be 1..120");
-    }
+const TIMEOUT: Duration = Duration::from_secs(120);
+pub fn start(engine: &Engine) -> Result<Value> {
     let _lock = files::Lock::acquire(&engine.data)?;
-    if crate::power::disabled(engine) {
-        bail!("engine disabled; generation is stopped");
-    }
     let active = files::json_file(&engine.data.join("active-job.json"))?;
     if let Some(id) = active["id"].as_str()
         && status(engine, id)?["state"] == "running"
@@ -41,12 +33,11 @@ pub fn start(engine: &Engine, input: &Value) -> Result<Value> {
     );
     let dir = task_dir(engine, &id)?;
     files::private_dir(&dir)?;
-    files::write_json(&dir.join("request.json"), input)?;
     files::write_json(
         &dir.join("state.json"),
         &json!({"id":id,"state":"running","pid":null,"created":SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),"result":null,"error":null}),
     )?;
-    // Publish the cancellable job identity before starting its worker.
+    // Publish the job identity before starting its worker.
     files::write_json(
         &engine.data.join("active-job.json"),
         &json!({"id":id,"pid":null}),
@@ -65,7 +56,7 @@ pub fn start(engine: &Engine, input: &Value) -> Result<Value> {
     let mut child = command.spawn()?;
     let pid = child.id();
     // Reap in the short-lived launcher only if startup has already failed. The worker's
-    // process group is independent; job state and /proc start time guard cancellation.
+    // process group is independent; job state and /proc start time detect a dead worker.
     if let Some(exit) = child.try_wait()? {
         bail!("worker failed to start: {exit}");
     }
@@ -121,42 +112,15 @@ pub fn status(engine: &Engine, id: &str) -> Result<Value> {
     state["output"] = json!(String::from_utf8_lossy(&output));
     Ok(state)
 }
-pub fn cancel(engine: &Engine, id: &str) -> Result<Value> {
-    let dir = task_dir(engine, id)?;
-    let mut state = status(engine, id)?;
-    if state["state"] == "running" {
-        // The worker polls this file, terminates its child and records the terminal state.
-        files::atomic(&dir.join("cancel"), b"")?;
-        state["cancel_requested"] = json!(true);
-    }
-    Ok(state)
-}
-pub fn cancel_active(engine: &Engine) -> Result<()> {
-    let active = files::json_file(&engine.data.join("active-job.json"))?;
-    if let Some(id) = active["id"].as_str() {
-        cancel(engine, id)?;
-        let deadline = Instant::now() + Duration::from_secs(2);
-        while status(engine, id)?["state"] == "running" {
-            if Instant::now() >= deadline {
-                bail!("generator cancellation pending; stop gate remains active");
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-    }
-    Ok(())
-}
 pub fn work(engine: &Engine, id: &str) -> Result<Value> {
     let dir = task_dir(engine, id)?;
-    let input = files::json_file(&dir.join("request.json"))?;
     let mut state = json!({"id":id,"state":"running","pid":std::process::id(),"process_token":process_token(std::process::id()),"result":null,"error":null});
     files::write_json(&dir.join("state.json"), &state)?;
     let result = (|| -> Result<Value> {
-        if crate::power::disabled(engine) || dir.join("cancel").exists() {
-            bail!("cancelled");
-        }
-        for name in ["autopif4.sh", "migrate.sh"] {
-            fs::copy(engine.module.join("scripts").join(name), dir.join(name))?;
-        }
+        fs::copy(
+            engine.module.join("scripts/autopif4.sh"),
+            dir.join("autopif4.sh"),
+        )?;
         let mut log_options = fs::OpenOptions::new();
         log_options.write(true).create_new(true);
         #[cfg(unix)]
@@ -174,29 +138,12 @@ pub fn work(engine: &Engine, id: &str) -> Result<Value> {
             .stdout(Stdio::from(output.try_clone()?))
             .stderr(Stdio::from(output))
             .stdin(Stdio::null());
-        if input["strong"].as_bool().unwrap_or(true) {
-            cmd.arg("--strong");
-        }
-        if input["match_device"].as_bool().unwrap_or(false)
-            && !engine.data.join("skipmatchdevice").exists()
-        {
-            cmd.arg("--match");
-        }
-        if crate::power::disabled(engine) || dir.join("cancel").exists() {
-            bail!("cancelled");
-        }
+        cmd.arg("--strong");
         let mut child = Process::spawn(&mut cmd)?;
-        let seconds = input["timeout_seconds"].as_u64().unwrap_or(120);
-        let deadline = Instant::now() + Duration::from_secs(seconds);
+        let deadline = Instant::now() + TIMEOUT;
         loop {
-            if crate::power::disabled(engine) {
-                files::atomic(&dir.join("cancel"), b"")?;
-            }
-            if dir.join("cancel").exists() || Instant::now() >= deadline {
-                if dir.join("cancel").exists() {
-                    bail!("cancelled");
-                }
-                bail!("generation timed out after {seconds} seconds");
+            if Instant::now() >= deadline {
+                bail!("generation timed out after {} seconds", TIMEOUT.as_secs());
             }
             if let Some(exit) = child.try_wait()? {
                 if !exit.success() {
@@ -233,9 +180,7 @@ pub fn work(engine: &Engine, id: &str) -> Result<Value> {
                 entries.insert((*key).into(), value.into());
             }
         }
-        if input["strong"].as_bool().unwrap_or(true) {
-            entries.insert("spoofProvider".into(), "0".into());
-        }
+        entries.insert("spoofProvider".into(), "0".into());
         let mut result = config::preview(
             engine,
             &json!({"content":config::serialize(&entries,"json")?,"format":"json"}),
@@ -247,23 +192,14 @@ pub fn work(engine: &Engine, id: &str) -> Result<Value> {
         result["metadata"] = json!({"released":comment_value(&content,"Canary Released:"),"estimated_expiry":comment_value(&content,"Estimated Expiry:")});
         Ok(result)
     })();
-    if crate::power::disabled(engine) || dir.join("cancel").exists() {
-        state["state"] = json!("cancelled");
-        state["error"] = json!("cancelled");
-    } else {
-        match result {
-            Ok(value) => {
-                state["state"] = json!("completed");
-                state["result"] = value;
-            }
-            Err(error) => {
-                state["state"] = json!(if dir.join("cancel").exists() {
-                    "cancelled"
-                } else {
-                    "failed"
-                });
-                state["error"] = json!(format!("{error:#}"));
-            }
+    match result {
+        Ok(value) => {
+            state["state"] = json!("completed");
+            state["result"] = value;
+        }
+        Err(error) => {
+            state["state"] = json!("failed");
+            state["error"] = json!(format!("{error:#}"));
         }
     }
     // Keep the terminal result and a bounded log; downloaded pages and build scratch
@@ -279,7 +215,7 @@ pub fn work(engine: &Engine, id: &str) -> Result<Value> {
     for entry in fs::read_dir(&dir)? {
         let entry = entry?;
         let name = entry.file_name();
-        if !["state.json", "output.log", "request.json"]
+        if !["state.json", "output.log"]
             .iter()
             .any(|keep| name == *keep)
         {
@@ -303,7 +239,7 @@ fn comment_value(content: &str, key: &str) -> Option<String> {
 mod tests {
     use super::*;
     #[test]
-    fn cancellation_is_scoped_and_unknown_tasks_are_errors() {
+    fn task_ids_are_scoped_and_unknown_tasks_are_errors() {
         let root = tempfile::tempdir().unwrap();
         let e = Engine {
             data: root.path().into(),
@@ -318,7 +254,6 @@ mod tests {
             &json!({"id":"test","state":"running"}),
         )
         .unwrap();
-        assert_eq!(cancel(&e, "test").unwrap()["cancel_requested"], true);
-        assert!(dir.join("cancel").exists());
+        assert_eq!(status(&e, "test").unwrap()["state"], "running");
     }
 }

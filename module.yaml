@@ -4,7 +4,7 @@ id: duck-toolbox
 name: Duck ToolBox
 summary: >-
   Tricky Store, TEESimulator and OhMyKeymint target manager with automatic RKP
-  keybox renewal through this device's Qualcomm KeyMint TA.
+  keybox renewal through this device's KeyMint TA and a bundled Play Integrity Fork engine.
 description: README.md
 license: MIT
 homepage: https://github.com/eltavine/Duck-ToolBox

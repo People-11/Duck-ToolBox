@@ -6,7 +6,23 @@
 
 - Remove the WebUI, the RKP workbench commands, the TEE Attestation Extractor, the Device
   ID Provisioner, the module/update tool and the sensitive-prop handler. The module keeps
-  the keystore target manager and the device RKP issuer.
+  the keystore target manager, the device RKP issuer (including 0.2.0's MediaTek AIDL V1
+  support) and the Play Integrity engine.
+
+### Play Integrity
+
+- Keep the bundled Play Integrity Fork engine with every option fixed to its default:
+  remove scripts-only mode, the property skip options, device matching, custom ROM
+  replacement lists, the stop control, the configuration library, observation records,
+  inspection, diagnostics, import and standalone migration. The root manager's
+  disable/remove flags are the only stop control; uninstall still restores DenyList,
+  SELinux and persistent property changes.
+- Refresh the fingerprint only after a keybox is issued, and once while none exists:
+  generate a strong Pixel Canary candidate, apply it with the matching keystore security
+  patch policy as one recoverable transaction, then restart DroidGuard and the Play
+  Store. Failed refreshes are retried at most hourly; there are no other update checks.
+- Report the fingerprint state in `module.prop`, and link corresponding source to this
+  fork, since the engine is modified.
 
 ### Keybox renewal
 
@@ -14,7 +30,8 @@
   keybox, issue and install a keybox through the device RKP issuer when it expires within
   a day or none is readable, and write the state to `module.prop`'s description.
   Automatic checks run every 30 minutes after boot, with at most one issuance per hour.
-- The action button issues a keybox immediately (`renew --force`) on every root manager.
+- The action button issues a keybox immediately (`renew --force`) on every root manager,
+  refreshes the fingerprint, and keeps the result on screen for 30 seconds.
 
 ### Target list
 

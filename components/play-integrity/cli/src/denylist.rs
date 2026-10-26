@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Modified 2026-10-24: journal Magisk list changes and preserve external edits on restoration.
-use crate::{Engine, command, files, power};
+use crate::{Engine, command, files};
 use anyhow::{Context as _, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -118,16 +118,12 @@ fn update(
     journal: &mut Journal,
     pkg: &str,
     desired: &Processes,
-    restoring: bool,
 ) -> Result<()> {
     let current = api.read()?.remove(pkg).unwrap_or_default();
     let record = journal.get_mut(pkg).context("missing package journal")?;
     reconcile(record, &current)?;
     let changes: Vec<_> = current.symmetric_difference(desired).cloned().collect();
     for proc in changes {
-        if !restoring && power::disabled(engine) {
-            bail!("engine disabled during DenyList update");
-        }
         let current = api.read()?.remove(pkg).unwrap_or_default();
         let record = journal.get_mut(pkg).context("missing package journal")?;
         reconcile(record, &current)?;
@@ -151,7 +147,8 @@ fn update(
     }
     save(engine, journal)
 }
-fn manage_with(engine: &Engine, api: &mut impl List, scripts_only: bool) -> Result<()> {
+/// Injection runs in GMS and the Play Store, so neither may be on an enforced DenyList.
+fn manage_with(engine: &Engine, api: &mut impl List) -> Result<()> {
     let current = api.read()?;
     let mut journal = load(engine)?;
     for pkg in PACKAGES {
@@ -161,17 +158,7 @@ fn manage_with(engine: &Engine, api: &mut impl List, scripts_only: bool) -> Resu
             expected: initial.clone(),
             pending: None,
         });
-        let mut desired = initial;
-        if scripts_only {
-            desired.insert(if pkg == PACKAGES[0] {
-                "com.google.android.gms.unstable".into()
-            } else {
-                pkg.into()
-            });
-        } else {
-            desired.clear();
-        }
-        update(engine, api, &mut journal, pkg, &desired, false)?;
+        update(engine, api, &mut journal, pkg, &Processes::new())?;
     }
     Ok(())
 }
@@ -183,7 +170,7 @@ fn restore_with(engine: &Engine, api: &mut impl List) -> Result<()> {
             continue;
         };
         let desired = record.before.clone();
-        match update(engine, api, &mut journal, pkg, &desired, true) {
+        match update(engine, api, &mut journal, pkg, &desired) {
             Ok(()) => {
                 journal.remove(pkg);
                 save(engine, &journal)?;
@@ -200,7 +187,7 @@ fn restore_with(engine: &Engine, api: &mut impl List) -> Result<()> {
     }
     Ok(())
 }
-pub fn manage(engine: &Engine, mode: &str) -> Result<()> {
+pub fn manage(engine: &Engine) -> Result<()> {
     let Some(mut api) = Magisk::discover(engine) else {
         return Ok(());
     };
@@ -214,10 +201,10 @@ pub fn manage(engine: &Engine, mode: &str) -> Result<()> {
         }
         Err(e) => return Err(e),
     };
-    if mode != "scripts-only" && !status.status.success() {
+    if !status.status.success() {
         return Ok(());
     }
-    manage_with(engine, &mut api, mode == "scripts-only")
+    manage_with(engine, &mut api)
 }
 pub fn restore(engine: &Engine) -> Result<()> {
     if load(engine)?.is_empty() {
@@ -249,8 +236,8 @@ mod tests {
         }
     }
     #[test]
-    fn restore_modes_and_preserve_external_edits() {
-        for scripts in [false, true] {
+    fn restore_and_preserve_external_edits() {
+        {
             let root = tempfile::tempdir().unwrap();
             let e = Engine {
                 data: root.path().into(),
@@ -261,12 +248,12 @@ mod tests {
             api.set(PACKAGES[0], "com.google.android.gms", true)
                 .unwrap();
             let before = api.entries.clone();
-            manage_with(&e, &mut api, scripts).unwrap();
-            manage_with(&e, &mut api, scripts).unwrap();
+            manage_with(&e, &mut api).unwrap();
+            manage_with(&e, &mut api).unwrap();
             restore_with(&e, &mut api).unwrap();
             assert_eq!(api.entries.get(PACKAGES[0]), before.get(PACKAGES[0]));
             assert!(api.entries.get(PACKAGES[1]).is_none_or(BTreeSet::is_empty));
-            manage_with(&e, &mut api, scripts).unwrap();
+            manage_with(&e, &mut api).unwrap();
             api.set(PACKAGES[0], "com.google.android.gms.external", true)
                 .unwrap();
             let edited = api.entries[PACKAGES[0]].clone();
@@ -275,7 +262,7 @@ mod tests {
         }
     }
     #[test]
-    fn pending_change_and_mode_switch_keep_original_baseline() {
+    fn pending_change_keeps_original_baseline() {
         let root = tempfile::tempdir().unwrap();
         let e = Engine {
             data: root.path().into(),
@@ -285,8 +272,7 @@ mod tests {
         let mut api = Fake::default();
         api.set(PACKAGES[0], "com.google.android.gms.original", true)
             .unwrap();
-        manage_with(&e, &mut api, false).unwrap();
-        manage_with(&e, &mut api, true).unwrap();
+        manage_with(&e, &mut api).unwrap();
         let mut journal = load(&e).unwrap();
         let record = journal.get_mut(PACKAGES[0]).unwrap();
         record.pending = Some(record.before.clone());

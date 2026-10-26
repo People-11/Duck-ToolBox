@@ -187,69 +187,64 @@ fn run(ctx: &Context, command: Command) -> Result<Value> {
                     store.path.display()
                 );
             }
-            let request = input(args)?;
-            let candidate = request.get("engine").context("missing engine preview")?;
-            let stop_revision =
-                duck_play_integrity::request(ctx, "power", &json!({}))?["stop_revision"].clone();
-            let engine_backup = token(&duck_play_integrity::request(ctx, "prepare", candidate)?)?;
-            let patch = request.get("patch").filter(|v| !v.is_null());
-            let patch_backup = patch
-                .map(|v| patch_prepare(ctx, v).and_then(|v| token(&v)))
-                .transpose()?;
-            let mut journal = Journal {
-                api: 1,
-                phase: "applying".into(),
-                engine_backup,
-                patch_backup,
-                engine_started: false,
-                patch_started: false,
-                restart_required: false,
-            };
-            store.save(&journal)?;
-            let outcome = (|| -> Result<Value> {
-                journal.engine_started = true;
-                store.save(&journal)?;
-                let mut prepared = candidate.clone();
-                prepared["backup"] = json!(journal.engine_backup);
-                let engine = duck_play_integrity::request(ctx, "apply", &prepared)?;
-                if engine["backup"] != journal.engine_backup {
-                    bail!("engine backup changed during apply");
-                }
-                let mut restart = engine["restart_required"] == true;
-                if duck_play_integrity::request(ctx, "power", &json!({}))?["stop_revision"]
-                    != stop_revision
-                {
-                    bail!("engine was stopped during configuration application");
-                }
-                if let Some(backup) = &journal.patch_backup {
-                    journal.patch_started = true;
-                    store.save(&journal)?;
-                    restart |= patch_commit(ctx, backup)?["restart_required"] == true;
-                }
-                if duck_play_integrity::request(ctx, "power", &json!({}))?["stop_revision"]
-                    != stop_revision
-                {
-                    bail!("engine was stopped during configuration application");
-                }
-                journal.restart_required = restart;
-                journal.phase = "completed".into();
-                store.save(&journal)?;
-                Ok(
-                    json!({"config":engine["config"],"backup":journal.engine_backup,"restart_required":restart}),
-                )
-            })();
-            match outcome {
-                Ok(value) => Ok(value),
-                Err(error) => match recover(ctx, &store, &mut journal) {
-                    Ok(_) => {
-                        Err(error.context("application failed; original configurations restored"))
-                    }
-                    Err(recovery) => {
-                        Err(error.context(format!("recovery incomplete: {recovery:#}")))
-                    }
-                },
-            }
+            apply(ctx, &store, &input(args)?)
         }
+    }
+}
+/// Applies an engine candidate and optional keystore patch. An interrupted earlier
+/// transaction is rolled back first, since this unattended caller supersedes it anyway.
+pub fn apply_unattended(ctx: &Context, request: &Value) -> Result<Value> {
+    let store = Store::open(ctx)?;
+    if let Some(mut journal) = store.load()?.filter(Journal::pending) {
+        recover(ctx, &store, &mut journal)?;
+    }
+    apply(ctx, &store, request)
+}
+fn apply(ctx: &Context, store: &Store, request: &Value) -> Result<Value> {
+    let candidate = request.get("engine").context("missing engine preview")?;
+    let engine_backup = token(&duck_play_integrity::request(ctx, "prepare", candidate)?)?;
+    let patch = request.get("patch").filter(|v| !v.is_null());
+    let patch_backup = patch
+        .map(|v| patch_prepare(ctx, v).and_then(|v| token(&v)))
+        .transpose()?;
+    let mut journal = Journal {
+        api: 1,
+        phase: "applying".into(),
+        engine_backup,
+        patch_backup,
+        engine_started: false,
+        patch_started: false,
+        restart_required: false,
+    };
+    store.save(&journal)?;
+    let outcome = (|| -> Result<Value> {
+        journal.engine_started = true;
+        store.save(&journal)?;
+        let mut prepared = candidate.clone();
+        prepared["backup"] = json!(journal.engine_backup);
+        let engine = duck_play_integrity::request(ctx, "apply", &prepared)?;
+        if engine["backup"] != journal.engine_backup {
+            bail!("engine backup changed during apply");
+        }
+        let mut restart = engine["restart_required"] == true;
+        if let Some(backup) = &journal.patch_backup {
+            journal.patch_started = true;
+            store.save(&journal)?;
+            restart |= patch_commit(ctx, backup)?["restart_required"] == true;
+        }
+        journal.restart_required = restart;
+        journal.phase = "completed".into();
+        store.save(&journal)?;
+        Ok(
+            json!({"config":engine["config"],"backup":journal.engine_backup,"restart_required":restart}),
+        )
+    })();
+    match outcome {
+        Ok(value) => Ok(value),
+        Err(error) => match recover(ctx, store, &mut journal) {
+            Ok(_) => Err(error.context("application failed; original configurations restored")),
+            Err(recovery) => Err(error.context(format!("recovery incomplete: {recovery:#}"))),
+        },
     }
 }
 fn patch_prepare(ctx: &Context, value: &Value) -> Result<Value> {

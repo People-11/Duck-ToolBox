@@ -58,5 +58,6 @@ ui_print "! Duck ToolBox is not part of Tricky Store, TEESimulator or OhMyKeymin
 ui_print "  Do not report its issues to those projects."
 ui_print "- Keyboxes are issued with this device's KeyMint TA and renewed a day"
 ui_print "  before they expire. Use the action button to issue one now."
+ui_print "- Play Integrity injection requires Zygisk (Magisk, ZygiskNext or ReZygisk)."
 ui_print "- Installation complete."
 ui_print " "

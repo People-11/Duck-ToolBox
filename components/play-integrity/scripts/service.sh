@@ -2,6 +2,7 @@
 # Source: https://github.com/osm0sis/PlayIntegrityFork/tree/23ec56c2440c4fd1a5e893a23ef7861d6366a828
 # SPDX-License-Identifier: GPL-3.0-only
 # Modified 2026-10-24: independent engine packaging, bounded configuration and runtime operations.
+# Modified 2026-10-26: fixed default options; no scripts-only mode, skips or stop gate.
 MODPATH="$PIF_ENGINE_ROOT"
 . "$PIF_ENGINE_SCRIPTS/common_func.sh"
 pif_running || return 0
@@ -18,9 +19,7 @@ resetprop_if_match vendor.boot.bootmode recovery unknown
 # SELinux
 resetprop_if_diff ro.boot.selinux enforcing
 # use delete since it can be 0 or 1 for enforcing depending on OEM
-if ! $SKIPDELPROP; then
-    delprop_if_exist ro.build.selinux
-fi
+delprop_if_exist ro.build.selinux
 # Permissive visibility permissions are managed and journaled by the CLI.
 
 # SafetyNet/Play Integrity + OEM

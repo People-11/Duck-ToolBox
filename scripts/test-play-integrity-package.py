@@ -57,9 +57,7 @@ class ShellEntrypointTest(unittest.TestCase):
         scripts = root / "scripts"
         scripts.mkdir()
         (root / "module/bin").mkdir(parents=True)
-        (root / "module/webroot").mkdir()
         (root / "module/module.prop").write_text("version=1.2.3\n")
-        (root / "module/webroot/index.html").write_text("ui")
         for name in ("README.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md"):
             (root / name).write_text(name)
         wrapper = scripts / "package-module.sh"
