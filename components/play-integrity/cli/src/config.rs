@@ -2,6 +2,7 @@
 // Derived from Play Integrity Fork migrate.sh and native configuration handling.
 // Upstream 23ec56c2440c4fd1a5e893a23ef7861d6366a828; modified 2026-10-24:
 // bounded parsing, non-destructive migration, preserved custom fields and previews.
+// Modified 2026-10-26: migration always fills missing fields and advanced defaults; no options.
 use crate::{Engine, files};
 use anyhow::{Result, bail};
 use serde_json::{Value, json};
@@ -166,7 +167,9 @@ pub fn validate(entries: &Entries) -> Result<()> {
     }
     Ok(())
 }
-pub fn migrate(entries: &mut Entries, advanced: bool, force: bool) {
+/// Fills Build fields from the fingerprint and properties from Build fields, without
+/// replacing present values, and adds the advanced defaults.
+pub fn migrate(entries: &mut Entries) {
     let fingerprint = entries.get("FINGERPRINT").cloned().unwrap_or_default();
     let pieces: Vec<_> = fingerprint.split(['/', ':']).collect();
     if pieces.len() == 8 {
@@ -183,7 +186,7 @@ pub fn migrate(entries: &mut Entries, advanced: bool, force: bool) {
         .into_iter()
         .zip(pieces)
         {
-            if force || entries.get(key).is_none_or(String::is_empty) {
+            if entries.get(key).is_none_or(String::is_empty) {
                 entries.insert(key.into(), value.into());
             }
         }
@@ -196,10 +199,8 @@ pub fn migrate(entries: &mut Entries, advanced: bool, force: bool) {
             entries.entry(prop.into()).or_insert(value);
         }
     }
-    if advanced {
-        for (key, value) in ADVANCED {
-            entries.entry((*key).into()).or_insert((*value).into());
-        }
+    for (key, value) in ADVANCED {
+        entries.entry((*key).into()).or_insert((*value).into());
     }
 }
 pub fn serialize(entries: &Entries, format: &str) -> Result<String> {
@@ -230,14 +231,6 @@ pub fn preview(engine: &Engine, input: &Value) -> Result<Value> {
     let raw = crate::text(input, "content")?;
     let format = input["format"].as_str().unwrap_or("auto");
     let mut entries = parse(raw, format)?;
-    if input["migrate"].as_bool().unwrap_or(false) {
-        migrate(
-            &mut entries,
-            input["advanced"].as_bool().unwrap_or(true),
-            input["force"].as_bool().unwrap_or(false),
-        );
-    }
-    validate(&entries)?;
     let old = current(engine)?;
     let before: Entries = serde_json::from_value(old["entries"].clone())?;
     // Defaults for a new configuration are visible in the preview. Existing
@@ -270,7 +263,7 @@ mod tests {
     #[test]
     fn legacy_and_unknown_fields_survive_migration() {
         let mut e=parse("{\n// old\n\"FINGERPRINT\":\"google/p/d:16/ID/123:user/release-keys\",\"EXTRA\":\"https://a/b\",\"VERBOSE_LOGS\":\"2\"}","json").unwrap();
-        migrate(&mut e, true, false);
+        migrate(&mut e);
         assert_eq!(e["RELEASE"], "16");
         assert_eq!(e["EXTRA"], "https://a/b");
         assert_eq!(e["verboseLogs"], "2");
@@ -297,14 +290,14 @@ mod tests {
     #[test]
     fn migration_keeps_api_choices_and_never_invents_launch_levels() {
         let mut entries = parse("MODEL=A", "prop").unwrap();
-        migrate(&mut entries, true, false);
+        migrate(&mut entries);
         assert!(!entries.contains_key("DEVICE_INITIAL_SDK_INT"));
         assert!(!entries.contains_key("ro.board.first_api_level"));
         assert_eq!(entries["spoofProvider"], "0");
         entries.insert("DEVICE_INITIAL_SDK_INT".into(), "36".into());
         entries.insert("ro.board.first_api_level".into(), "35".into());
         entries.insert("spoofProvider".into(), "1".into());
-        migrate(&mut entries, true, false);
+        migrate(&mut entries);
         assert_eq!(entries["DEVICE_INITIAL_SDK_INT"], "36");
         assert_eq!(entries["ro.product.first_api_level"], "36");
         assert_eq!(entries["ro.board.first_api_level"], "35");

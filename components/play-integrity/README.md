@@ -40,7 +40,7 @@ Exit status is nonzero on failure.
 | --- | --- |
 | status | Prerequisites, conflicts, boot evidence and reboot requirement |
 | config | Canonical prop/JSON content, entries and revision |
-| preview | content, format (auto/prop/json), optional migrate/advanced/force; returns changes, revision and suggested security patch |
+| preview | content, format (auto/prop/json); returns changes, revision and suggested security patch |
 | prepare | Preview content plus revision; durably saves a backup token before publication |
 | apply | Preview content plus revision and optional prepared backup token; atomic publication and backup token |
 | restore | backup token; refuses to overwrite a newer configuration |

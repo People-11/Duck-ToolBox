@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Modified 2026-10-24: independent engine packaging, bounded configuration and runtime operations.
 # Modified 2026-10-26: download independent pages concurrently; each is checked before use.
+# Modified 2026-10-26: no options; always a random Pixel Beta device (no device matching).
 
 if [ "$USER" != "root" -a "$(whoami 2>/dev/null)" != "root" ]; then
   echo "autopif4: need root permissions"; exit 1;
@@ -11,16 +12,6 @@ fi;
 case "$HOME" in
   *termux*) echo "autopif4: need su root environment"; exit 1;;
 esac;
-
-until [ -z "$1" ]; do
-  case "$1" in
-    -h|--help|help) echo "sh autopif4.sh [-a|-s] [-m]"; exit 0;;
-    -a|--advanced|advanced) ARGS="-a"; shift;;
-    -s|--strong|strong) FORCE_STRONG=1; shift;;
-    -m|--match|match) FORCE_MATCH=1; shift;;
-    *) break;;
-  esac;
-done;
 
 echo "Pixel Canary pif.prop generator script \
   \n  by osm0sis @ xda-developers";
@@ -85,15 +76,6 @@ PRODUCT_LIST="$(grep 'tr id=' PIXEL_${SRC}_HTML | sed 's;.*<tr id="\(.*\)">.*;\1
 echo "$PRODUCT_LIST" | wc -w;
 
 item "Selecting Pixel Beta device ...";
-if [ "$FORCE_MATCH" ]; then
-  DEVICE="$(getprop ro.product.device)";
-  case "$(echo ' '$PRODUCT_LIST' ')" in
-    *" ${DEVICE}_beta "*)
-      MODEL="$(getprop ro.product.model)";
-      PRODUCT="${DEVICE}_beta";
-    ;;
-  esac;
-fi;
 set_random_beta() {
   local list_count="$(echo "$MODEL_LIST" | wc -l)";
   local list_rand="$((RANDOM % $list_count + 1))";
@@ -104,9 +86,7 @@ set_random_beta() {
   PRODUCT="$(eval echo \${$list_rand})";
   DEVICE="$(echo "$PRODUCT" | sed 's/_beta//')";
 }
-if [ -z "$PRODUCT" ]; then
-  set_random_beta;
-fi;
+set_random_beta;
 echo "$MODEL ($PRODUCT)";
 
 get_canary_info() {
@@ -118,13 +98,6 @@ get_canary_info() {
   INCREMENTAL="$(grep 'buildId' PIXEL_CANARY_JSON | cut -d\" -f4)";
 }
 get_canary_info;
-if [ -z "$ID" -o -z "$INCREMENTAL" ] && [ "$FORCE_MATCH" ]; then
-  warn "Failed to extract matching build info from JSON";
-  item "Retrying with random Pixel Beta device ...";
-  set_random_beta;
-  echo "$MODEL ($PRODUCT)";
-  get_canary_info;
-fi;
 [ -z "$ID" -o -z "$INCREMENTAL" ] && die "Failed to extract build info from JSON";
 echo "Android $(grep 'releaseTrackVersionName' PIXEL_CANARY_JSON | cut -d\" -f4)";
 

@@ -138,7 +138,6 @@ pub fn work(engine: &Engine, id: &str) -> Result<Value> {
             .stdout(Stdio::from(output.try_clone()?))
             .stderr(Stdio::from(output))
             .stdin(Stdio::null());
-        cmd.arg("--strong");
         let mut child = Process::spawn(&mut cmd)?;
         let deadline = Instant::now() + TIMEOUT;
         loop {
@@ -173,7 +172,7 @@ pub fn work(engine: &Engine, id: &str) -> Result<Value> {
         entries
             .entry("ro.board.first_api_level".into())
             .or_insert("32".into());
-        config::migrate(&mut entries, true, false);
+        config::migrate(&mut entries);
         let previous = config::current(engine)?;
         for (key, _) in config::ADVANCED {
             if let Some(value) = previous["entries"][*key].as_str() {
